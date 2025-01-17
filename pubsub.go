@@ -10,8 +10,7 @@ type Opt func(*PubSub)
 // WithHistorySize enables history and sets the size of the history buffer
 func WithHistorySize(size int) Opt {
 	return func(ps *PubSub) {
-		ps.historySize = size
-		ps.enableHistory = true
+		ps.topicFunc = func() Topic { return NewTopicWithHistory(size) }
 	}
 }
 
@@ -21,11 +20,9 @@ func WithHistorySize(size int) Opt {
 // and deliver them to new subscribers
 // It is safe for concurrent use
 type PubSub struct {
-	mu            sync.RWMutex
-	subscribers   map[string][]chan interface{}
-	history       map[string][]interface{}
-	historySize   int
-	enableHistory bool
+	mu          sync.RWMutex
+	subscribers map[string]Topic
+	topicFunc   func() Topic
 }
 
 // NewPubSub creates a new PubSub instance
@@ -33,15 +30,12 @@ type PubSub struct {
 // and set the size of the history buffer
 func NewPubSub(opt ...Opt) *PubSub {
 	ps := &PubSub{
-		subscribers: make(map[string][]chan interface{}),
+		subscribers: make(map[string]Topic),
+		topicFunc:   NewTopic,
 	}
 
 	for _, o := range opt {
 		o(ps)
-	}
-
-	if ps.enableHistory {
-		ps.history = make(map[string][]interface{})
 	}
 
 	return ps
@@ -49,71 +43,45 @@ func NewPubSub(opt ...Opt) *PubSub {
 
 // SubscribeFunc subscribes to a topic and calls the provided function for each received message
 // If withHistory is true, the function will be called with all messages in the history
-func (ps *PubSub) SubscribeFunc(topic string, withHistory bool, f func(msg interface{})) {
-	ch := ps.Subscribe(topic, withHistory)
-	go func() {
-		for msg := range ch {
-			f(msg)
-		}
-	}()
+func (ps *PubSub) SubscribeFunc(topic string, f func(msg interface{})) {
+	ps.getTopic(topic).SubscribeFunc(f)
 }
 
 // Subscribe subscribes to a topic and returns a channel that will receive messages published to the topic
 // If withHistory is true, the channel will be populated with all messages in the history
 // "*" is a special topic that will receive all messages to all topics
-func (ps *PubSub) Subscribe(topic string, withHistory bool) <-chan interface{} {
-	ps.mu.RLock()
-	defer ps.mu.RUnlock()
-
-	ch := make(chan interface{})
-
-	if withHistory {
-		// Is it confusing having a buffer withHistory and no buffer without
-		ch = make(chan interface{}, ps.historySize*2)
-		if history, ok := ps.history[topic]; ok {
-			for _, msg := range history {
-				ch <- msg
-			}
-		}
-	}
-	ps.subscribers[topic] = append(ps.subscribers[topic], ch)
-
-	return ch
+func (ps *PubSub) Subscribe(topic string) <-chan interface{} {
+	return ps.getTopic(topic).Subscribe()
 }
 
 // SubscribeAllFunc subscribes to all topics and calls the provided function for each received message
 func (ps *PubSub) SubscribeAllFunc(withHistory bool, f func(msg interface{})) {
-	ps.SubscribeFunc("*", withHistory, f)
+	ps.SubscribeFunc("*", f)
 }
 
 // SubscribeAll subscribes to all topics and returns a channel that will receive all messages published to all topics
-func (ps *PubSub) SubscribeAll(withHistory bool) <-chan interface{} {
-	return ps.Subscribe("*", withHistory)
+func (ps *PubSub) SubscribeAll() <-chan interface{} {
+	return ps.getTopic("*").Subscribe()
 }
 
-func (ps *PubSub) publishToTopicWithHistory(topic string, msg interface{}) {
+func (ps *PubSub) getTopic(topic string) Topic {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	// Add message to history
-	if ps.enableHistory {
-		ps.history[topic] = append(ps.history[topic], msg)
-		if len(ps.history[topic]) > ps.historySize {
-			ps.history[topic] = ps.history[topic][1:]
-		}
+	if _, ok := ps.subscribers[topic]; !ok {
+		ps.subscribers[topic] = ps.topicFunc()
 	}
+	return ps.subscribers[topic]
+}
 
-	for _, ch := range ps.subscribers[topic] {
-		go func(c chan interface{}) {
-			c <- msg
-		}(ch)
-	}
+func (ps *PubSub) publishToTopic(topic string, msg interface{}) {
+	ps.getTopic(topic).Publish(msg)
 }
 
 // Publish publishes a message to a topic
 func (ps *PubSub) Publish(topic string, msg interface{}) {
-	ps.publishToTopicWithHistory(topic, msg)
-	ps.publishToTopicWithHistory("*", msg)
+	ps.publishToTopic(topic, msg)
+	ps.publishToTopic("*", msg)
 }
 
 // UnsubscribeAll unsubscribes a channel from the "*" special topic
@@ -123,15 +91,5 @@ func (ps *PubSub) UnsubscribeAll(sub <-chan interface{}) {
 
 // Unsubscribe unsubscribes a channel from a topic
 func (ps *PubSub) Unsubscribe(topic string, sub <-chan interface{}) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-
-	subs := ps.subscribers[topic]
-	for i, ch := range subs {
-		if ch == sub {
-			ps.subscribers[topic] = append(subs[:i], subs[i+1:]...)
-			close(ch)
-			break
-		}
-	}
+	ps.getTopic(topic).Unsubscribe(sub)
 }

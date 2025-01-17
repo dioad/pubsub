@@ -12,7 +12,7 @@ func TestPubSubAllWithNoHistory(t *testing.T) {
 	ps.Publish("topic1", "msg1")
 	ps.Publish("topic2", "msg2")
 
-	ch1 := ps.SubscribeAll(false)
+	ch1 := ps.SubscribeAll()
 	ps.Publish("topic2", "msg3")
 
 	receivedMessages := readAllFromChannel(ch1, 5*time.Millisecond)
@@ -58,7 +58,7 @@ func TestPubSubAllWithHistory(t *testing.T) {
 	ps.Publish("topic1", "msg1")
 	ps.Publish("topic2", "msg2")
 
-	ch1 := ps.SubscribeAll(true)
+	ch1 := ps.SubscribeAll()
 	ps.Publish("topic2", "msg3")
 
 	receivedMessages := readAllFromChannel(ch1, 5*time.Millisecond)
@@ -85,9 +85,9 @@ func readAllFromChannel(ch <-chan interface{}, timePeriod time.Duration) []inter
 func TestPubSub(t *testing.T) {
 	ps := NewPubSub(WithHistorySize(10))
 
-	ch1 := ps.Subscribe("topic1", false)
-	ch2 := ps.Subscribe("topic2", true)
-	ch4 := ps.SubscribeAll(true)
+	ch1 := ps.Subscribe("topic1")
+	ch2 := ps.Subscribe("topic2")
+	ch4 := ps.SubscribeAll()
 
 	ps.Publish("topic1", "msg1")
 	ps.Publish("topic2", "msg2")
@@ -118,10 +118,10 @@ func TestPubSubSubscribeFunc(t *testing.T) {
 	ch1 := make(chan interface{})
 	ch2 := make(chan interface{})
 
-	ps.SubscribeFunc("topic1", false, func(msg interface{}) {
+	ps.SubscribeFunc("topic1", func(msg interface{}) {
 		ch1 <- msg
 	})
-	ps.SubscribeFunc("topic2", false, func(msg interface{}) {
+	ps.SubscribeFunc("topic2", func(msg interface{}) {
 		ch2 <- msg
 	})
 
