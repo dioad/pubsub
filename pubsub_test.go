@@ -70,8 +70,8 @@ func TestPubSubAllWithHistory(t *testing.T) {
 	}
 }
 
-func readAllFromChannel(ch <-chan interface{}, timePeriod time.Duration) []interface{} {
-	var messages []interface{}
+func readAllFromChannel[T any](ch <-chan T, timePeriod time.Duration) []T {
+	var messages []T
 	for {
 		select {
 		case <-time.After(timePeriod):
