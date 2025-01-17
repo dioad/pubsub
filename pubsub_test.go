@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestPubSubAllWithNoHistory(t *testing.T) {
+func TestPub_SubscribeAll_WithNoHistory(t *testing.T) {
 	ps := NewPubSub()
 
 	ps.Publish("topic1", "msg1")
@@ -52,7 +52,7 @@ func unorderedListsAreEqual(list1 []interface{}, list2 []interface{}) bool {
 	return true
 }
 
-func TestPubSubAllWithHistory(t *testing.T) {
+func TestPubSub_SubscribeAll_WithHistory(t *testing.T) {
 	ps := NewPubSub(WithHistorySize(10))
 
 	ps.Publish("topic1", "msg1")
@@ -112,7 +112,7 @@ func TestPubSub(t *testing.T) {
 	}
 }
 
-func TestPubSubSubscribeFunc(t *testing.T) {
+func TestPubSub_SubscribeFunc(t *testing.T) {
 	ps := NewPubSub(WithHistorySize(10))
 
 	ch1 := make(chan interface{})
