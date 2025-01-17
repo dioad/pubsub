@@ -74,14 +74,14 @@ func (ps *PubSub) getTopic(topic string) Topic {
 	return ps.subscribers[topic]
 }
 
-func (ps *PubSub) publishToTopic(topic string, msg interface{}) {
-	ps.getTopic(topic).Publish(msg)
+func (ps *PubSub) publishToTopic(topic string, msg ...interface{}) {
+	ps.getTopic(topic).Publish(msg...)
 }
 
 // Publish publishes a message to a topic
-func (ps *PubSub) Publish(topic string, msg interface{}) {
-	ps.publishToTopic(topic, msg)
-	ps.publishToTopic("*", msg)
+func (ps *PubSub) Publish(topic string, msg ...interface{}) {
+	ps.publishToTopic(topic, msg...)
+	ps.publishToTopic("*", msg...)
 }
 
 // UnsubscribeAll unsubscribes a channel from the "*" special topic

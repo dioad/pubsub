@@ -22,8 +22,7 @@ func TestSubscribe(t *testing.T) {
 
 	ch := Subscribe[testStructOne](topic)
 
-	topic.Publish(msgOne)
-	topic.Publish(msgTwo)
+	topic.Publish(msgOne, msgTwo)
 
 	msg := <-ch
 	if reflect.TypeOf(msg).Name() != "testStructOne" {
@@ -45,9 +44,7 @@ func TestFilterChan(t *testing.T) {
 	ch := topic.Subscribe()
 	filteredCh := FilterChan(ch, func(s testStructOne) bool { return s.Field == "value1" })
 
-	topic.Publish(msgOne)
-	topic.Publish(msgTwo)
-	topic.Publish(msgThree)
+	topic.Publish(msgOne, msgTwo, msgThree)
 
 	messages := readAllFromChannel[testStructOne](filteredCh, 5*time.Millisecond)
 
@@ -74,9 +71,7 @@ func TestSubscribeWithFilter(t *testing.T) {
 
 	ch := SubscribeWithFilter(topic, func(s testStructOne) bool { return s.Field == "value1" })
 
-	topic.Publish(msgOne)
-	topic.Publish(msgTwo)
-	topic.Publish(msgThree)
+	topic.Publish(msgOne, msgTwo, msgThree)
 
 	msg := <-ch
 	if reflect.TypeOf(msg).Name() != "testStructOne" {

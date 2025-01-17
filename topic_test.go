@@ -63,8 +63,7 @@ func TestTopicWithHistory_Publish(t *testing.T) {
 	topic := NewTopicWithHistory(10)
 
 	ch := topic.Subscribe()
-	topic.Publish("msg1")
-	topic.Publish("msg2")
+	topic.Publish("msg1", "msg2")
 
 	msg1 := <-ch
 	msg2 := <-ch
@@ -80,8 +79,7 @@ func TestTopicWithHistory_Subscribe(t *testing.T) {
 	topic := NewTopicWithHistory(10)
 
 	ch := topic.Subscribe()
-	topic.Publish("msg1")
-	topic.Publish("msg2")
+	topic.Publish("msg1", "msg2")
 
 	msg1 := <-ch
 	msg2 := <-ch
@@ -100,8 +98,7 @@ func TestTopicWithHistory_SubscribeFunc(t *testing.T) {
 	topic.SubscribeFunc(func(msg interface{}) {
 		ch <- msg
 	})
-	topic.Publish("msg1")
-	topic.Publish("msg2")
+	topic.Publish("msg1", "msg2")
 
 	msg1 := <-ch
 	msg2 := <-ch
@@ -118,7 +115,7 @@ func TestTopicWithHistory_Unsubscribe(t *testing.T) {
 
 	ch := topic.Subscribe()
 	topic.Unsubscribe(ch)
-	topic.Publish("msg1")
+	topic.Publish("msg1", "msg2")
 
 	select {
 	case m, ok := <-ch:

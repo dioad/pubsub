@@ -4,7 +4,7 @@ import "sync"
 
 // Topic is a simple, single topic, publish/subscribe interface.
 type Topic interface {
-	Publish(msg any)
+	Publish(msg ...any)
 	Subscribe() <-chan any
 	SubscribeFunc(f func(msg any))
 	SubscribeWithBuffer(size int) <-chan any
@@ -17,11 +17,13 @@ type topic struct {
 }
 
 // Publish publishes a message to the topic.
-func (t *topic) Publish(msg any) {
+func (t *topic) Publish(msg ...any) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	for _, ch := range t.subscriptions {
-		ch <- msg
+	for _, m := range msg {
+		for _, ch := range t.subscriptions {
+			ch <- m
+		}
 	}
 }
 
@@ -91,15 +93,16 @@ type topicWithHistory struct {
 }
 
 // Publish publishes a message to the topic.
-func (t *topicWithHistory) Publish(msg any) {
-	t.topic.Publish(msg)
+func (t *topicWithHistory) Publish(msg ...any) {
+	t.topic.Publish(msg...)
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.history = append(t.history, msg)
+	msgLen := len(msg)
+	t.history = append(t.history, msg...)
 	if len(t.history) > t.historySize {
-		t.history = t.history[1:]
+		t.history = t.history[msgLen:]
 	}
 }
 
