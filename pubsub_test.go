@@ -76,8 +76,12 @@ func readAllFromChannel[T any](ch <-chan T, timePeriod time.Duration) []T {
 		select {
 		case <-time.After(timePeriod):
 			return messages
-		case msg := <-ch:
+		case msg, open := <-ch:
+			if !open {
+				return messages
+			}
 			messages = append(messages, msg)
+			
 		}
 	}
 }

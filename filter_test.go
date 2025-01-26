@@ -82,3 +82,50 @@ func TestSubscribeWithFilter(t *testing.T) {
 		t.Errorf("expected %v, got %v", "value1", msg.Field)
 	}
 }
+
+func TestMerge(t *testing.T) {
+	msgOne := testStructOne{Field: "value1"}
+	msgTwo := testStructOne{Field: "value2"}
+
+	chOne := make(chan interface{})
+	chTwo := make(chan interface{})
+	mergedCh := Merge[testStructOne](chOne, chTwo)
+
+	chOne <- msgOne
+	chTwo <- msgTwo
+
+	messages := readAllFromChannel[testStructOne](mergedCh, 5*time.Millisecond)
+
+	if len(messages) != 2 {
+		t.Fatalf("expected 3 messages, got %v", len(messages))
+	}
+
+	if messages[0].Field != "value1" {
+		t.Errorf("expected %v, got %v", "value1", messages[0].Field)
+	}
+
+	if messages[1].Field != "value2" {
+		t.Errorf("expected %v, got %v", "value2", messages[1].Field)
+	}
+}
+
+func TestCastChan(t *testing.T) {
+	ch := make(chan interface{})
+	castCh := CastChan[testStructOne](ch)
+
+	go func() {
+		ch <- testStructOne{Field: "value1"}
+		ch <- testStructTwo{Field: "value2"}
+		close(ch)
+	}()
+
+	messages := readAllFromChannel[testStructOne](castCh, 5*time.Millisecond)
+
+	if len(messages) != 1 {
+		t.Fatalf("expected 1 message, got %v", len(messages))
+	}
+
+	if messages[0].Field != "value1" {
+		t.Errorf("expected %v, got %v", "value1", messages[0].Field)
+	}
+}

@@ -152,7 +152,7 @@ func (t *topicWithHistory) Unsubscribe(ch <-chan any) {
 func NewTopicWithHistory(size int) Topic {
 	return &topicWithHistory{
 		topic:       newTopic(),
-		history:     make([]any, 0),
+		history:     make([]any, 0, size),
 		historySize: size,
 	}
 }
