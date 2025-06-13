@@ -10,7 +10,7 @@ import "sync"
 type Topic interface {
 	Publish(msg ...any)
 	Subscribe() <-chan any
-	SubscribeFunc(f func(msg any))
+	SubscribeFunc(f func(msg any)) <-chan any
 	SubscribeWithBuffer(size int) <-chan any
 	Unsubscribe(ch <-chan any)
 }
@@ -57,13 +57,15 @@ func (t *topic) subscribeWithBuffer(size int) chan any {
 }
 
 // SubscribeFunc subscribes to a topic and calls the provided function for each received message.
-func (t *topic) SubscribeFunc(f func(msg any)) {
+// Returns the subscription channel that can be used to unsubscribe later.
+func (t *topic) SubscribeFunc(f func(msg any)) <-chan any {
 	ch := t.Subscribe()
 	go func() {
 		for msg := range ch {
 			f(msg)
 		}
 	}()
+	return ch
 }
 
 // Subscribe returns a channel that will receive messages published to the topic.
@@ -150,13 +152,14 @@ func (t *topicWithHistory) subscribeWithBuffer(size int) chan any {
 }
 
 // SubscribeFunc subscribes to a topic and calls the provided function for each received message.
-func (t *topicWithHistory) SubscribeFunc(f func(msg any)) {
+func (t *topicWithHistory) SubscribeFunc(f func(msg any)) <-chan any {
 	ch := t.Subscribe()
 	go func() {
 		for msg := range ch {
 			f(msg)
 		}
 	}()
+	return ch
 }
 
 // Subscribe returns a channel that will receive messages published to the topic.

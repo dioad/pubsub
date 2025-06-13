@@ -135,7 +135,12 @@ func Merge[B any](channels ...<-chan interface{}) <-chan B {
 				continue
 			}
 			if val, ok := recv.Interface().(B); ok {
-				out <- val
+				select {
+				case out <- val:
+					// Message sent successfully
+				default:
+					// Channel is full, skip this message
+				}
 			}
 		}
 	}()
