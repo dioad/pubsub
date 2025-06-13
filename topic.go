@@ -1,8 +1,12 @@
+// Package pubsub provides a simple publish/subscribe messaging system
+// that allows multiple subscribers to receive messages published to a topic.
 package pubsub
 
 import "sync"
 
 // Topic is a simple, single topic, publish/subscribe interface.
+// It provides methods to publish messages, subscribe to messages,
+// and unsubscribe from the topic. Messages can be of any type.
 type Topic interface {
 	Publish(msg ...any)
 	Subscribe() <-chan any
@@ -17,12 +21,18 @@ type topic struct {
 }
 
 // Publish publishes a message to the topic.
+// Uses a non-blocking send to prevent deadlocks if a subscriber is not reading.
 func (t *topic) Publish(msg ...any) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	for _, m := range msg {
 		for _, ch := range t.subscriptions {
-			ch <- m
+			select {
+			case ch <- m:
+				// Message sent successfully
+			default:
+				// Channel is full or not being read from, skip this message
+			}
 		}
 	}
 }
@@ -35,6 +45,8 @@ func (t *topic) SubscribeWithBuffer(size int) <-chan any {
 }
 
 // subscribeWithBuffer returns a channel that will receive messages published to the topic.
+// The channel has a buffer of the specified size to prevent blocking on message delivery.
+// This is an internal method used by Subscribe and SubscribeWithBuffer.
 func (t *topic) subscribeWithBuffer(size int) chan any {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -80,11 +92,15 @@ func newTopic() *topic {
 	}
 }
 
-// NewTopic
+// NewTopic creates a new Topic instance that implements a simple
+// publish/subscribe messaging system.
 func NewTopic() Topic {
 	return newTopic()
 }
 
+// topicWithHistory implements the Topic interface and maintains a history
+// of published messages. It stores the last N messages where N is specified
+// during creation.
 type topicWithHistory struct {
 	topic       *topic
 	mu          sync.RWMutex
@@ -114,6 +130,7 @@ func (t *topicWithHistory) SubscribeWithBuffer(size int) <-chan any {
 }
 
 // subscribeWithBuffer returns a channel that will receive messages published to the topic.
+// Uses a non-blocking send for historical messages to prevent deadlocks if the channel buffer is smaller than the history size.
 func (t *topicWithHistory) subscribeWithBuffer(size int) chan any {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -121,13 +138,18 @@ func (t *topicWithHistory) subscribeWithBuffer(size int) chan any {
 	ch := t.topic.subscribeWithBuffer(size)
 
 	for _, msg := range t.history {
-		ch <- msg
+		select {
+		case ch <- msg:
+			// Message sent successfully
+		default:
+			// Channel is full, skip this historical message
+		}
 	}
 
 	return ch
 }
 
-// SubscriberFunc subscribes to a topic and calls the provided function for each received message.
+// SubscribeFunc subscribes to a topic and calls the provided function for each received message.
 func (t *topicWithHistory) SubscribeFunc(f func(msg any)) {
 	ch := t.Subscribe()
 	go func() {

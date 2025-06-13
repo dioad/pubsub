@@ -84,12 +84,14 @@ func TestSubscribeWithFilter(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
+	myMerge := Merge[testStructOne]
+
 	msgOne := testStructOne{Field: "value1"}
 	msgTwo := testStructOne{Field: "value2"}
 
 	chOne := make(chan interface{})
 	chTwo := make(chan interface{})
-	mergedCh := Merge[testStructOne](chOne, chTwo)
+	mergedCh := myMerge(chOne, chTwo)
 
 	chOne <- msgOne
 	chTwo <- msgTwo
