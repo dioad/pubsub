@@ -7,11 +7,46 @@ import "sync"
 // Topic is a simple, single topic, publish/subscribe interface.
 // It provides methods to publish messages, subscribe to messages,
 // and unsubscribe from the topic. Messages can be of any type.
+//
+// Basic usage:
+//
+//	// Create a new Topic
+//	topic := pubsub.NewTopic()
+//
+//	// Subscribe to the topic
+//	ch := topic.Subscribe()
+//
+//	// Process messages in a goroutine
+//	go func() {
+//	    for msg := range ch {
+//	        fmt.Printf("Received: %v\n", msg)
+//	    }
+//	}()
+//
+//	// Publish messages to the topic
+//	topic.Publish("Hello, World!")
+//
+//	// With history:
+//	topicWithHistory := pubsub.NewTopicWithHistory(10)
 type Topic interface {
+	// Publish sends one or more messages to all subscribers of the topic.
+	// Uses a non-blocking send to prevent deadlocks if a subscriber is not reading.
 	Publish(msg ...any)
+
+	// Subscribe returns a channel that will receive messages published to the topic.
+	// If the topic has history enabled, the channel will receive historical messages.
 	Subscribe() <-chan any
+
+	// SubscribeFunc subscribes to the topic and calls the provided function for each message.
+	// Returns the subscription channel that can be used to unsubscribe later.
+	// If the topic has history enabled, the function will be called for historical messages.
 	SubscribeFunc(f func(msg any)) <-chan any
+
+	// SubscribeWithBuffer returns a channel with a custom buffer size that will receive messages.
+	// Larger buffer sizes can help prevent message loss when subscribers can't keep up.
 	SubscribeWithBuffer(size int) <-chan any
+
+	// Unsubscribe removes a channel from the list of subscribers and closes the channel.
 	Unsubscribe(ch <-chan any)
 }
 

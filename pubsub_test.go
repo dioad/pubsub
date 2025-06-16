@@ -81,7 +81,7 @@ func readAllFromChannel[T any](ch <-chan T, timePeriod time.Duration) []T {
 				return messages
 			}
 			messages = append(messages, msg)
-			
+
 		}
 	}
 }

@@ -19,6 +19,27 @@ func WithHistorySize(size int) Opt {
 // and callback-based message handling. The interface provides message history
 // capabilities when enabled, and supports a special "*" topic that receives
 // all messages from all topics.
+//
+// Basic usage:
+//
+//	// Create a new PubSub instance
+//	ps := pubsub.NewPubSub()
+//
+//	// Subscribe to a topic
+//	ch := ps.Subscribe("notifications")
+//
+//	// Process messages in a goroutine
+//	go func() {
+//	    for msg := range ch {
+//	        fmt.Printf("Received: %v\n", msg)
+//	    }
+//	}()
+//
+//	// Publish messages to the topic
+//	ps.Publish("notifications", "Hello, World!")
+//
+//	// With history:
+//	ps := pubsub.NewPubSub(pubsub.WithHistorySize(10))
 type PubSub interface {
 	// Publish sends messages to a specific topic. All subscribers to the topic
 	// and subscribers to the "*" topic will receive these messages.
@@ -30,25 +51,31 @@ type PubSub interface {
 
 	// Subscribe creates a subscription to a specific topic and returns a channel
 	// that will receive all messages published to that topic.
+	// If history is enabled, new subscribers will receive historical messages.
 	Subscribe(topic string) <-chan interface{}
 
 	// SubscribeFunc registers a callback function that will be invoked for
 	// each message published to the specified topic.
+	// If history is enabled, the callback will be invoked for historical messages.
 	SubscribeFunc(topic string, f func(msg interface{}))
 
 	// Unsubscribe removes a subscription channel from a specific topic.
+	// After unsubscribing, the channel will be closed.
 	Unsubscribe(topic string, sub <-chan interface{})
 
 	// SubscribeAll creates a subscription to all topics by subscribing to
 	// the special "*" topic and returns a channel for receiving messages.
+	// If history is enabled, new subscribers will receive historical messages from all topics.
 	SubscribeAll() <-chan interface{}
 
 	// SubscribeAllFunc registers a callback function that will be invoked
 	// for every message published to any topic.
+	// If history is enabled, the callback will be invoked for historical messages from all topics.
 	SubscribeAllFunc(f func(msg interface{}))
 
 	// UnsubscribeAll removes a subscription channel from the special "*" topic,
 	// effectively unsubscribing from all messages.
+	// After unsubscribing, the channel will be closed.
 	UnsubscribeAll(sub <-chan interface{})
 }
 
