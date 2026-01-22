@@ -7,6 +7,30 @@ import (
 	"reflect"
 )
 
+func ApplyChan[A any, B any](s <-chan A, f func(A) (B, error)) <-chan B {
+	out := make(chan B, cap(s))
+	go func() {
+		defer close(out)
+		for msg := range s {
+			b, err := f(msg)
+			if err != nil {
+				// Handle error (e.g., log it, send to an error channel, etc.)
+				continue // Skip this message if there's an error
+			}
+			select {
+			case out <- b:
+				// Message sent successfully
+			default:
+				// Log or handle the case where the output channel is full
+				// This prevents deadlocks if the output channel is full
+				// and the function is trying to send a message.
+				// Channel is full, skip this message
+			}
+		}
+	}()
+	return out
+}
+
 // FilterChan returns a channel that will receive messages from the input channel that pass a filter function.
 // It performs both type assertion and custom filtering in a single operation.
 // Messages that don't match the type T or don't pass the filter function are silently dropped.

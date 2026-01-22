@@ -143,3 +143,152 @@ func TestPubSub_SubscribeFunc(t *testing.T) {
 		t.Errorf("expected msg21, got %v", msg21)
 	}
 }
+
+func TestPubSub_SubscribeAllFunc(t *testing.T) {
+	ps := NewPubSub()
+	ch := make(chan interface{}, 10)
+
+	ps.SubscribeAllFunc(func(msg interface{}) {
+		ch <- msg
+	})
+
+	ps.Publish("topic1", "msg1")
+	// Small sleep to ensure messages are not arriving exactly at the same time if that's an issue
+	time.Sleep(5 * time.Millisecond)
+	ps.Publish("topic2", "msg2")
+
+	received := readAllFromChannel(ch, 50*time.Millisecond)
+	expected := []interface{}{"msg1", "msg2"}
+
+	if !unorderedListsAreEqual(received, expected) {
+		t.Errorf("expected %v, got %v", expected, received)
+	}
+}
+
+func TestPubSub_Topics(t *testing.T) {
+	ps := NewPubSub()
+	ps.Publish("topic1", "msg1")
+	ps.Publish("topic2", "msg2")
+	ps.Subscribe("topic3")
+
+	topics := ps.Topics()
+	expected := []string{"topic1", "topic2", "topic3", "*"}
+
+	if len(topics) != len(expected) {
+		t.Fatalf("expected %d topics, got %d: %v", len(expected), len(topics), topics)
+	}
+
+	for _, e := range expected {
+		found := false
+		for _, tt := range topics {
+			if e == tt {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected topic %s not found in %v", e, topics)
+		}
+	}
+}
+
+func TestPubSub_Unsubscribe(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.Subscribe("topic1")
+
+	ps.Publish("topic1", "msg1")
+	msg := <-ch
+	if msg != "msg1" {
+		t.Errorf("expected msg1, got %v", msg)
+	}
+
+	ps.Unsubscribe("topic1", ch)
+
+	// Channel should be closed
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Errorf("expected channel to be closed")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("timeout waiting for channel to close")
+	}
+
+	// Publishing after unsubscribe should not panic
+	ps.Publish("topic1", "msg2")
+}
+
+func TestPubSub_UnsubscribeAll(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.SubscribeAll()
+
+	ps.Publish("topic1", "msg1")
+	msg := <-ch
+	if msg != "msg1" {
+		t.Errorf("expected msg1, got %v", msg)
+	}
+
+	ps.UnsubscribeAll(ch)
+
+	// Channel should be closed
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Errorf("expected channel to be closed")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("timeout waiting for channel to close")
+	}
+}
+
+type mockFeeder struct {
+	ch chan *EventTuple
+}
+
+func (m *mockFeeder) Feed() <-chan *EventTuple {
+	return m.ch
+}
+
+func TestPubSub_AddFeeder(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.Subscribe("topic1")
+
+	feeder := &mockFeeder{ch: make(chan *EventTuple, 1)}
+	ps.AddFeeder(feeder)
+
+	feeder.ch <- &EventTuple{Topic: "topic1", Event: "msg1"}
+
+	select {
+	case msg := <-ch:
+		if msg != "msg1" {
+			t.Errorf("expected msg1, got %v", msg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("timeout waiting for message")
+	}
+
+	close(feeder.ch)
+}
+
+func TestPubSub_AddFeedingFunc(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.Subscribe("topic1")
+
+	feedCh := make(chan *EventTuple, 1)
+	ps.AddFeedingFunc(func() <-chan *EventTuple {
+		return feedCh
+	})
+
+	feedCh <- &EventTuple{Topic: "topic1", Event: "msg1"}
+
+	select {
+	case msg := <-ch:
+		if msg != "msg1" {
+			t.Errorf("expected msg1, got %v", msg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("timeout waiting for message")
+	}
+
+	close(feedCh)
+}

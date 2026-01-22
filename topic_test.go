@@ -2,6 +2,7 @@ package pubsub
 
 import (
 	"testing"
+	"time"
 )
 
 func TestTopic_Publish(t *testing.T) {
@@ -122,6 +123,31 @@ func TestTopicWithHistory_Unsubscribe(t *testing.T) {
 		if ok {
 			t.Errorf("expected channel to be closed, got %v", m)
 		}
-	default:
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("timeout waiting for channel to close")
+	}
+}
+
+func TestTopicWithHistory_SubscribeWithBuffer(t *testing.T) {
+	topic := NewTopicWithHistory(2)
+	topic.Publish("msg1")
+	topic.Publish("msg2")
+	topic.Publish("msg3")
+
+	// Wait a bit to ensure history is updated if there's any async (there isn't but for safety)
+	time.Sleep(10 * time.Millisecond)
+
+	// History only has "msg2", "msg3"
+	ch := topic.SubscribeWithBuffer(10)
+
+	received := readAllFromChannel(ch, 20*time.Millisecond)
+	expected := []interface{}{"msg2", "msg3"}
+
+	if !orderedListsAreEqual(received, expected) {
+		t.Errorf("expected %v, got %v", expected, received)
+	}
+
+	if cap(ch) != 10 {
+		t.Errorf("expected capacity 10, got %d", cap(ch))
 	}
 }

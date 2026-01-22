@@ -2,7 +2,9 @@
 // that allows multiple subscribers to receive messages published to a topic.
 package pubsub
 
-import "sync"
+import (
+	"sync"
+)
 
 // Topic is a simple, single topic, publish/subscribe interface.
 // It provides methods to publish messages, subscribe to messages,
@@ -31,7 +33,7 @@ import "sync"
 type Topic interface {
 	// Publish sends one or more messages to all subscribers of the topic.
 	// Uses a non-blocking send to prevent deadlocks if a subscriber is not reading.
-	Publish(msg ...any)
+	Publish(msg ...any) int
 
 	// Subscribe returns a channel that will receive messages published to the topic.
 	// If the topic has history enabled, the channel will receive historical messages.
@@ -57,20 +59,47 @@ type topic struct {
 
 // Publish publishes a message to the topic.
 // Uses a non-blocking send to prevent deadlocks if a subscriber is not reading.
-func (t *topic) Publish(msg ...any) {
+func (t *topic) Publish(msg ...any) int {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
+
+	successCount := 0
 	for _, m := range msg {
 		for _, ch := range t.subscriptions {
 			select {
 			case ch <- m:
+				successCount++
 				// Message sent successfully
 			default:
 				// Channel is full or not being read from, skip this message
 			}
 		}
 	}
+	return successCount
 }
+
+// PublishReliable publishes a message to the topic using blocking sends with timeout.
+// This ensures messages are delivered even to unbuffered channels, but may block briefly.
+// Returns the number of subscribers that successfully received the message.
+// func (t *topic) PublishReliable(msg ...any) int {
+// 	t.mu.RLock()
+// 	defer t.mu.RUnlock()
+//
+// 	successCount := 0
+// 	for _, m := range msg {
+// 		for _, ch := range t.subscriptions {
+// 			select {
+// 			case ch <- m:
+// 				// Message sent successfully
+// 				successCount++
+// 			case <-time.After(100 * time.Millisecond):
+// 				// Timeout - subscriber is not reading, but we tried
+// 				// This prevents indefinite blocking while still attempting delivery
+// 			}
+// 		}
+// 	}
+// 	return successCount
+// }
 
 // SubscribeWithBuffer returns a channel that will receive messages published to the topic.
 //
@@ -104,9 +133,16 @@ func (t *topic) SubscribeFunc(f func(msg any)) <-chan any {
 }
 
 // Subscribe returns a channel that will receive messages published to the topic.
+// Uses a small buffer to prevent message loss with non-blocking sends.
 func (t *topic) Subscribe() <-chan any {
 	return t.subscribeWithBuffer(1)
 }
+
+// // SubscribeUnbuffered returns an unbuffered channel that will receive messages.
+// // Should be used with PublishReliable for guaranteed message delivery.
+// func (t *topic) SubscribeUnbuffered() <-chan any {
+// 	return t.subscribeWithBuffer(0)
+// }
 
 // Unsubscribe removes a channel from the list of subscribers.
 func (t *topic) Unsubscribe(ch <-chan any) {
@@ -146,8 +182,8 @@ type topicWithHistory struct {
 }
 
 // Publish publishes a message to the topic.
-func (t *topicWithHistory) Publish(msg ...any) {
-	t.topic.Publish(msg...)
+func (t *topicWithHistory) Publish(msg ...any) int {
+	n := t.topic.Publish(msg...)
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -157,6 +193,7 @@ func (t *topicWithHistory) Publish(msg ...any) {
 	if len(t.history) > t.historySize {
 		t.history = t.history[msgLen:]
 	}
+	return n
 }
 
 // SubscribeWithBuffer returns a channel that will receive messages published to the topic.
@@ -201,6 +238,12 @@ func (t *topicWithHistory) SubscribeFunc(f func(msg any)) <-chan any {
 func (t *topicWithHistory) Subscribe() <-chan any {
 	return t.subscribeWithBuffer(t.historySize * 2)
 }
+
+// SubscribeUnbuffered returns an unbuffered channel that will receive messages.
+// Should be used with PublishReliable for guaranteed message delivery.
+// func (t *topicWithHistory) SubscribeUnbuffered() <-chan any {
+// 	return t.subscribeWithBuffer(0)
+// }
 
 // Unsubscribe removes a channel from the list of subscribers.
 func (t *topicWithHistory) Unsubscribe(ch <-chan any) {
