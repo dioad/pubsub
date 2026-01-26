@@ -274,6 +274,8 @@ func TestPubSub_AddFeedingFunc(t *testing.T) {
 	ps := NewPubSub()
 	ch := ps.Subscribe("topic1")
 
+	ps.AddFeedingFunc(nil)
+
 	feedCh := make(chan *EventTuple, 1)
 	ps.AddFeedingFunc(func() <-chan *EventTuple {
 		return feedCh
@@ -290,5 +292,34 @@ func TestPubSub_AddFeedingFunc(t *testing.T) {
 		t.Errorf("timeout waiting for message")
 	}
 
+	// Test with nil channel from feeding func
+	ps.AddFeedingFunc(func() <-chan *EventTuple {
+		return nil
+	})
+
+	// Test with nil EventTuple
+	feedCh <- nil
+
 	close(feedCh)
+}
+
+func TestPubSub_AddFeedingFunc_Multiple(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.Subscribe("topic1")
+
+	feedCh1 := make(chan *EventTuple, 1)
+	feedCh2 := make(chan *EventTuple, 1)
+
+	ps.AddFeedingFunc(func() <-chan *EventTuple { return feedCh1 })
+	ps.AddFeedingFunc(func() <-chan *EventTuple { return feedCh2 })
+
+	feedCh1 <- &EventTuple{Topic: "topic1", Event: "msg1"}
+	feedCh2 <- &EventTuple{Topic: "topic1", Event: "msg2"}
+
+	received := readAllFromChannel(ch, 50*time.Millisecond)
+	expected := []interface{}{"msg1", "msg2"}
+
+	if !unorderedListsAreEqual(received, expected) {
+		t.Errorf("expected %v, got %v", expected, received)
+	}
 }

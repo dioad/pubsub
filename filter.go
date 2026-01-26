@@ -7,6 +7,19 @@ import (
 	"reflect"
 )
 
+// ApplyChan creates a new channel by applying a transformation function to each message
+// from the input channel. If the transformation function returns an error,
+// the message is dropped. The output channel has the same capacity as the source channel.
+//
+// Example:
+//
+//	rawCh := topic.Subscribe()
+//	stringCh := ApplyChan(rawCh, func(msg any) (string, error) {
+//	    if s, ok := msg.(string); ok {
+//	        return strings.ToUpper(s), nil
+//	    }
+//	    return "", errors.New("not a string")
+//	})
 func ApplyChan[A any, B any](s <-chan A, f func(A) (B, error)) <-chan B {
 	out := make(chan B, cap(s))
 	go func() {

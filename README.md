@@ -8,7 +8,7 @@ A lightweight, type-safe publish/subscribe library for Go applications.
 - Type-safe message filtering with generics
 - Support for message history
 - Channel merging capabilities
-- Non-blocking message delivery
+- Non-blocking and Reliable message delivery options
 - Thread-safe operations
 - Callback-based message handling
 - Wildcard topic subscription
@@ -144,6 +144,19 @@ ch2 := topic2.Subscribe()
 mergedCh := pubsub.Merge[UserEvent](ch1, ch2)
 ```
 
+### Reliable Delivery
+
+For scenarios where message delivery is more important than non-blocking speed, use the `PublishReliable` and
+`SubscribeUnbuffered` methods.
+
+```go
+// Create unbuffered subscription
+ch := ps.SubscribeUnbuffered("critical-events")
+
+// Publish with 100ms timeout for blocking delivery
+ps.PublishReliable("critical-events", "Important Message")
+```
+
 ## Examples
 
 See the `examples` directory for more detailed examples:
@@ -163,4 +176,4 @@ go test -bench=. github.com/dioad/pubsub
 
 ## License
 
-[Apache License 2.0](LICENSE)
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

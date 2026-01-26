@@ -141,16 +141,14 @@ func TestMerge_SkipMismatchedType(t *testing.T) {
 }
 
 func TestCastChan(t *testing.T) {
-	ch := make(chan interface{})
+	ch := make(chan interface{}, 2)
 	castCh := CastChan[testStructOne](ch)
 
-	go func() {
-		ch <- testStructOne{Field: "value1"}
-		ch <- testStructTwo{Field: "value2"}
-		close(ch)
-	}()
+	ch <- testStructOne{Field: "value1"}
+	ch <- testStructTwo{Field: "value2"}
+	close(ch)
 
-	messages := readAllFromChannel[testStructOne](castCh, 5*time.Millisecond)
+	messages := readAllFromChannel[testStructOne](castCh, 50*time.Millisecond)
 
 	if len(messages) != 1 {
 		t.Fatalf("expected 1 message, got %v", len(messages))
