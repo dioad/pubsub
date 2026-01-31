@@ -135,3 +135,97 @@ func BenchmarkMerge(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkShardedPubSubPublish measures the performance of the sharded PubSub
+func BenchmarkShardedPubSubPublish(b *testing.B) {
+	ps := NewShardedPubSub()
+
+	// Subscribe to ensure messages are being processed
+	_ = ps.Subscribe("test-topic")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ps.Publish("test-topic", i)
+	}
+}
+
+// BenchmarkShardedPubSubWithHistoryPublish measures sharded PubSub with history
+func BenchmarkShardedPubSubWithHistoryPublish(b *testing.B) {
+	ps := NewShardedPubSub(WithHistorySize(100))
+
+	// Subscribe to ensure messages are being processed
+	_ = ps.Subscribe("test-topic")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ps.Publish("test-topic", i)
+	}
+}
+
+// BenchmarkShardedPubSubWithLockFreeHistory measures sharded PubSub with lock-free history
+func BenchmarkShardedPubSubWithLockFreeHistory(b *testing.B) {
+	ps := NewShardedPubSub(WithLockFreeHistory(100))
+
+	// Subscribe to ensure messages are being processed
+	_ = ps.Subscribe("test-topic")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ps.Publish("test-topic", i)
+	}
+}
+
+// BenchmarkTopicWithLockFreeHistoryPublish measures lock-free history topic
+func BenchmarkTopicWithLockFreeHistoryPublish(b *testing.B) {
+	topic := NewTopicWithLockFreeHistory(100)
+
+	// Subscribe to ensure messages are being processed
+	_ = topic.Subscribe()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		topic.Publish(i)
+	}
+}
+
+// BenchmarkShardedPubSubParallel measures parallel publish performance
+func BenchmarkShardedPubSubParallel(b *testing.B) {
+	ps := NewShardedPubSub(WithLockFreeHistory(100))
+
+	// Subscribe to multiple topics
+	_ = ps.Subscribe("topic-1")
+	_ = ps.Subscribe("topic-2")
+	_ = ps.Subscribe("topic-3")
+	_ = ps.Subscribe("topic-4")
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			topic := "topic-" + string(rune('1'+i%4))
+			ps.Publish(topic, i)
+			i++
+		}
+	})
+}
+
+// BenchmarkOriginalPubSubParallel measures parallel publish for comparison
+func BenchmarkOriginalPubSubParallel(b *testing.B) {
+	ps := NewPubSub(WithHistorySize(100))
+
+	// Subscribe to multiple topics
+	_ = ps.Subscribe("topic-1")
+	_ = ps.Subscribe("topic-2")
+	_ = ps.Subscribe("topic-3")
+	_ = ps.Subscribe("topic-4")
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			topic := "topic-" + string(rune('1'+i%4))
+			ps.Publish(topic, i)
+			i++
+		}
+	})
+}
