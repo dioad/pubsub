@@ -19,9 +19,39 @@ func TestPub_SubscribeAll_WithNoHistory(t *testing.T) {
 
 	receivedMessages := readAllFromChannel(ch1, 5*time.Millisecond)
 
-	expectedMessages := []interface{}{"msg3"}
+	expectedMessages := []any{"msg3"}
 
 	assert.Equal(t, expectedMessages, receivedMessages)
+}
+
+func TestPubSub_DeleteTopic(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.Subscribe("test")
+	ps.Publish("test", "msg1")
+
+	// Read msg1 to clear the channel
+	<-ch
+
+	ps.DeleteTopic("test")
+
+	select {
+	case _, ok := <-ch:
+		assert.False(t, ok, "expected channel to be closed after DeleteTopic")
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timeout waiting for channel to close after DeleteTopic")
+	}
+
+	assert.NotContains(t, ps.Topics(), "test")
+}
+
+func TestPubSub_Drops(t *testing.T) {
+	ps := NewPubSub()
+	_ = ps.SubscribeWithBuffer("test", 0) // Unbuffered
+
+	// We don't read from the channel, so Publish should drop
+	res := ps.Publish("test", "msg1")
+	assert.Equal(t, 1, res.Drops)
+	assert.Equal(t, 0, res.Deliveries)
 }
 
 func TestPubSub_SubscribeAll_WithHistory(t *testing.T) {
@@ -35,7 +65,7 @@ func TestPubSub_SubscribeAll_WithHistory(t *testing.T) {
 
 	receivedMessages := readAllFromChannel(ch1, 5*time.Millisecond)
 
-	expectedMessages := []interface{}{"msg1", "msg2", "msg3"}
+	expectedMessages := []any{"msg1", "msg2", "msg3"}
 
 	assert.Equal(t, expectedMessages, receivedMessages)
 }
@@ -71,7 +101,7 @@ func TestPubSub(t *testing.T) {
 
 	receivedMessages := readAllFromChannel(ch4, 5*time.Millisecond)
 
-	expectedMessages := []interface{}{"msg1", "msg2"}
+	expectedMessages := []any{"msg1", "msg2"}
 
 	assert.Equal(t, "msg1", msg11)
 	assert.Equal(t, "msg2", msg21)
@@ -81,13 +111,13 @@ func TestPubSub(t *testing.T) {
 func TestPubSub_SubscribeFunc(t *testing.T) {
 	ps := NewPubSub(WithHistorySize(10))
 
-	ch1 := make(chan interface{})
-	ch2 := make(chan interface{})
+	ch1 := make(chan any)
+	ch2 := make(chan any)
 
-	ps.SubscribeFunc("topic1", func(msg interface{}) {
+	ps.SubscribeFunc("topic1", func(msg any) {
 		ch1 <- msg
 	})
-	ps.SubscribeFunc("topic2", func(msg interface{}) {
+	ps.SubscribeFunc("topic2", func(msg any) {
 		ch2 <- msg
 	})
 
@@ -103,9 +133,9 @@ func TestPubSub_SubscribeFunc(t *testing.T) {
 
 func TestPubSub_SubscribeAllFunc(t *testing.T) {
 	ps := NewPubSub()
-	ch := make(chan interface{}, 10)
+	ch := make(chan any, 10)
 
-	ps.SubscribeAllFunc(func(msg interface{}) {
+	ps.SubscribeAllFunc(func(msg any) {
 		ch <- msg
 	})
 
@@ -115,7 +145,7 @@ func TestPubSub_SubscribeAllFunc(t *testing.T) {
 	ps.Publish("topic2", "msg2")
 
 	received := readAllFromChannel(ch, 50*time.Millisecond)
-	expected := []interface{}{"msg1", "msg2"}
+	expected := []any{"msg1", "msg2"}
 
 	assert.ElementsMatch(t, expected, received)
 }
@@ -245,7 +275,7 @@ func TestPubSub_AddFeedingFunc_Multiple(t *testing.T) {
 	feedCh2 <- &EventTuple{Topic: "topic1", Event: "msg2"}
 
 	received := readAllFromChannel(ch, 50*time.Millisecond)
-	expected := []interface{}{"msg1", "msg2"}
+	expected := []any{"msg1", "msg2"}
 
 	assert.ElementsMatch(t, expected, received)
 }

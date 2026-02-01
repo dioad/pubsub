@@ -4,11 +4,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/dioad/pubsub/pkg/ringbuffer"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRingBuffer_Basic(t *testing.T) {
-	rb := newRingBuffer(5)
+	rb := ringbuffer.New(5)
 
 	// Push some items
 	rb.Push("a")
@@ -17,11 +18,11 @@ func TestRingBuffer_Basic(t *testing.T) {
 
 	all := rb.GetAll()
 	assert.Len(t, all, 3)
-	assert.Equal(t, []interface{}{"a", "b", "c"}, all)
+	assert.Equal(t, []any{"a", "b", "c"}, all)
 }
 
 func TestRingBuffer_Overflow(t *testing.T) {
-	rb := newRingBuffer(3)
+	rb := ringbuffer.New(3)
 
 	// Push more than capacity
 	rb.Push("a")
@@ -33,11 +34,11 @@ func TestRingBuffer_Overflow(t *testing.T) {
 	all := rb.GetAll()
 	assert.Len(t, all, 3)
 	// Should have the last 3 items
-	assert.Equal(t, []interface{}{"c", "d", "e"}, all)
+	assert.Equal(t, []any{"c", "d", "e"}, all)
 }
 
 func TestRingBuffer_Concurrent(t *testing.T) {
-	rb := newRingBuffer(100)
+	rb := ringbuffer.New(100)
 	var wg sync.WaitGroup
 
 	// Concurrent writers
@@ -76,10 +77,10 @@ func TestShardedPubSub_Basic(t *testing.T) {
 		}
 	}()
 
-	n := ps.Publish("test", "hello", "world")
-	// n counts successful channel sends; each message goes to 1 subscriber on "test" + 0 on "*" (no subscriber yet)
+	res := ps.Publish("test", "hello", "world")
+	// res.Deliveries counts successful channel sends; each message goes to 1 subscriber on "test" + 0 on "*" (no subscriber yet)
 	// So with 2 messages and 1 subscriber, we expect 2 deliveries
-	assert.GreaterOrEqual(t, n, 1)
+	assert.GreaterOrEqual(t, res.Deliveries, 1)
 
 	ps.Unsubscribe("test", ch)
 }
@@ -189,7 +190,7 @@ func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
 	// Subscribe - should get history
 	ch := topic.Subscribe()
 
-	received := make([]interface{}, 0)
+	received := make([]any, 0)
 	for i := 0; i < 3; i++ {
 		select {
 		case msg := <-ch:

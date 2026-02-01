@@ -78,8 +78,8 @@ func TestMerge(t *testing.T) {
 	msgOne := testStructOne{Field: "value1"}
 	msgTwo := testStructOne{Field: "value2"}
 
-	chOne := make(chan interface{})
-	chTwo := make(chan interface{})
+	chOne := make(chan any)
+	chTwo := make(chan any)
 	mergedCh := myMerge(chOne, chTwo)
 
 	chOne <- msgOne
@@ -103,7 +103,7 @@ func TestMerge(t *testing.T) {
 }
 
 func TestMerge_SkipMismatchedType(t *testing.T) {
-	ch1 := make(chan interface{}, 2)
+	ch1 := make(chan any, 2)
 	merged := Merge[string](ch1)
 
 	ch1 <- "msg1"
@@ -114,7 +114,7 @@ func TestMerge_SkipMismatchedType(t *testing.T) {
 }
 
 func TestCastChan(t *testing.T) {
-	ch := make(chan interface{}, 2)
+	ch := make(chan any, 2)
 	castCh := CastChan[testStructOne](ch)
 
 	ch <- testStructOne{Field: "value1"}

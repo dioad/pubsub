@@ -18,7 +18,7 @@ func main() {
 	ch := ps.Subscribe("greetings")
 
 	// Subscribe with a callback function
-	ps.SubscribeFunc("greetings", func(msg interface{}) {
+	ps.SubscribeFunc("greetings", func(msg any) {
 		fmt.Printf("Callback received: %v\n", msg)
 	})
 

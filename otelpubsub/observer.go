@@ -1,3 +1,4 @@
+// Package otelpubsub provides an OpenTelemetry and Prometheus observer for the pubsub package.
 package otelpubsub
 
 import (
@@ -34,6 +35,7 @@ type otelObserver struct {
 	meter  metric.Meter
 
 	msgPublished metric.Int64Counter
+	msgDropped   metric.Int64Counter
 	subsActive   metric.Int64UpDownCounter
 }
 
@@ -68,6 +70,9 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	msgPublished, _ := meter.Int64Counter("pubsub.messages.published",
 		metric.WithDescription("Total number of messages published"),
 	)
+	msgDropped, _ := meter.Int64Counter("pubsub.messages.dropped",
+		metric.WithDescription("Total number of messages dropped"),
+	)
 	subsActive, _ := meter.Int64UpDownCounter("pubsub.subscriptions.active",
 		metric.WithDescription("Number of active subscriptions"),
 	)
@@ -77,11 +82,12 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 		meter:  meter,
 
 		msgPublished: msgPublished,
+		msgDropped:   msgDropped,
 		subsActive:   subsActive,
 	}
 }
 
-func (o *otelObserver) OnPublish(topic string, msg interface{}) {
+func (o *otelObserver) OnPublish(topic string, msg any) {
 	// Prometheus
 	publishCounter.WithLabelValues(topic).Inc()
 
@@ -94,6 +100,11 @@ func (o *otelObserver) OnPublish(topic string, msg interface{}) {
 		trace.WithAttributes(attribute.String("topic", topic)),
 	)
 	defer span.End()
+}
+
+func (o *otelObserver) OnDrop(topic string, msg any) {
+	// OpenTelemetry Metrics
+	o.msgDropped.Add(context.Background(), 1, metric.WithAttributes(attribute.String("topic", topic)))
 }
 
 func (o *otelObserver) OnSubscribe(topic string) {

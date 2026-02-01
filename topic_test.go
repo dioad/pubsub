@@ -20,8 +20,8 @@ func TestTopic_Publish(t *testing.T) {
 func TestTopic_SubscribeFunc(t *testing.T) {
 	topic := NewTopic()
 
-	ch := make(chan interface{})
-	topic.SubscribeFunc(func(msg interface{}) {
+	ch := make(chan any)
+	topic.SubscribeFunc(func(msg any) {
 		ch <- msg
 	})
 	topic.Publish("msg1")
@@ -81,8 +81,8 @@ func TestTopicWithHistory_Subscribe(t *testing.T) {
 func TestTopicWithHistory_SubscribeFunc(t *testing.T) {
 	topic := NewTopic(WithHistory(10))
 
-	ch := make(chan interface{})
-	topic.SubscribeFunc(func(msg interface{}) {
+	ch := make(chan any)
+	topic.SubscribeFunc(func(msg any) {
 		ch <- msg
 	})
 	topic.Publish("msg1", "msg2")
@@ -121,7 +121,7 @@ func TestTopicWithHistory_SubscribeWithBuffer(t *testing.T) {
 	ch := topic.SubscribeWithBuffer(10)
 
 	received := readAllFromChannel(ch, 20*time.Millisecond)
-	expected := []interface{}{"msg2", "msg3"}
+	expected := []any{"msg2", "msg3"}
 
 	assert.Equal(t, expected, received)
 	assert.Equal(t, 10, cap(ch))

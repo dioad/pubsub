@@ -22,10 +22,13 @@ func newMockObserver() *mockObserver {
 	}
 }
 
-func (o *mockObserver) OnPublish(topic string, msg interface{}) {
+func (o *mockObserver) OnPublish(topic string, msg any) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.publishes[topic]++
+}
+
+func (o *mockObserver) OnDrop(topic string, msg any) {
 }
 
 func (o *mockObserver) OnSubscribe(topic string) {

@@ -1,6 +1,3 @@
-// Package pubsub implements a publish/subscribe pattern with type-safe channels.
-// It provides filtering capabilities and channel merging functionality for building
-// event-driven applications with strong type checking.
 package pubsub
 
 import (
@@ -102,7 +99,7 @@ func ApplyChanWithMetrics[A any, B any](s <-chan A, f func(A) (B, error), metric
 //	for alert := range highPriorityMsgs {
 //	    handleHighPriorityAlert(alert)
 //	}
-func FilterChan[T any](s <-chan interface{}, f func(T) bool) <-chan T {
+func FilterChan[T any](s <-chan any, f func(T) bool) <-chan T {
 	ts := make(chan T, cap(s))
 	go func() {
 		defer close(ts)
@@ -121,7 +118,7 @@ func FilterChan[T any](s <-chan interface{}, f func(T) bool) <-chan T {
 	return ts
 }
 
-// CastChan creates a new channel that converts messages from an interface{} channel to type T.
+// CastChan creates a new channel that converts messages from an any channel to type T.
 // It internally uses FilterChan with an always-true filter, effectively performing only type conversion.
 // Messages that cannot be type-asserted to T are silently dropped.
 //
@@ -135,7 +132,7 @@ func FilterChan[T any](s <-chan interface{}, f func(T) bool) <-chan T {
 //	for user := range userCh {
 //	    fmt.Printf("User: %s (ID: %d)\n", user.Name, user.ID)
 //	}
-func CastChan[T any](s <-chan interface{}) <-chan T {
+func CastChan[T any](s <-chan any) <-chan T {
 	return FilterChan(s, func(T) bool { return true })
 }
 
@@ -190,7 +187,7 @@ func Subscribe[T any](t Topic) <-chan T {
 //	for event := range mergedCh {
 //	    fmt.Printf("User %s performed action: %s\n", event.Username, event.Action)
 //	}
-func Merge[B any](channels ...<-chan interface{}) <-chan B {
+func Merge[B any](channels ...<-chan any) <-chan B {
 	capacity := 0
 	cases := make([]reflect.SelectCase, len(channels))
 	for i, ch := range channels {

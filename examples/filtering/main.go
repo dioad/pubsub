@@ -94,7 +94,7 @@ func main() {
 	fmt.Println("===============")
 
 	// Create a raw channel
-	rawInterfaceCh := make(chan interface{})
+	rawInterfaceCh := make(chan any)
 
 	// Cast to TextMessage channel
 	castCh := pubsub.CastChan[TextMessage](rawInterfaceCh)

@@ -30,7 +30,7 @@ func TestPubSub_Shutdown(t *testing.T) {
 
 	ps.Shutdown(context.Background())
 
-	channels := []<-chan interface{}{ch1, ch2, chAll}
+	channels := []<-chan any{ch1, ch2, chAll}
 	for i, ch := range channels {
 		select {
 		case _, ok := <-ch:
@@ -51,7 +51,7 @@ func TestShardedPubSub_Shutdown(t *testing.T) {
 
 	ps.Shutdown(context.Background())
 
-	channels := []<-chan interface{}{ch1, ch2, chAll}
+	channels := []<-chan any{ch1, ch2, chAll}
 	for i, ch := range channels {
 		select {
 		case _, ok := <-ch:
