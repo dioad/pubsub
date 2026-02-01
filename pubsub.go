@@ -275,12 +275,19 @@ func (ps *pubSub) Topics() []string {
 	return topicNames
 }
 
+// topicWithName is an internal interface for topics that can have their name set.
+// This interface is not part of the public API and is used internally by PubSub
+// to set topic names for observer callbacks.
+type topicWithName interface {
+	setName(name string)
+}
+
 // setTopicName sets the name on a topic for observer callbacks.
+// This uses an interface-based approach to avoid fragile type assertions
+// and ensure all topic implementations properly support naming.
 func setTopicName(t Topic, name string) {
-	if ot, ok := t.(*pubsubTopic); ok {
-		ot.name = name
-	} else if ht, ok := t.(*topicWithHistory); ok {
-		ht.topic.name = name
+	if tn, ok := t.(topicWithName); ok {
+		tn.setName(name)
 	}
 }
 
