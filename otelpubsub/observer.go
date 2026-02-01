@@ -101,17 +101,26 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	// use the existing collectors instead
 	if err := cfg.prometheusRegistry.Register(publishCounter); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-			publishCounter = are.ExistingCollector.(*prometheus.CounterVec)
+			// Safe type assertion: we created the original counter with the same type and labels
+			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
+				publishCounter = existing
+			}
 		}
 	}
 	if err := cfg.prometheusRegistry.Register(subscribeCounter); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-			subscribeCounter = are.ExistingCollector.(*prometheus.CounterVec)
+			// Safe type assertion: we created the original counter with the same type and labels
+			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
+				subscribeCounter = existing
+			}
 		}
 	}
 	if err := cfg.prometheusRegistry.Register(unsubscribeCounter); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-			unsubscribeCounter = are.ExistingCollector.(*prometheus.CounterVec)
+			// Safe type assertion: we created the original counter with the same type and labels
+			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
+				unsubscribeCounter = existing
+			}
 		}
 	}
 
