@@ -240,6 +240,12 @@ func (t *pubsubTopic) Close() {
 	t.Shutdown(context.Background())
 }
 
+// setName sets the name of the topic for observer callbacks.
+// This is an internal method used by PubSub to configure topic names.
+func (t *pubsubTopic) setName(name string) {
+	t.name = name
+}
+
 func newTopic(o Observer) *pubsubTopic {
 	if o == nil {
 		o = NoopObserver{}

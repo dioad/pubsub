@@ -177,3 +177,9 @@ func (t *topicWithHistory) Close() {
 func (t *topicWithHistory) Shutdown(ctx context.Context) {
 	t.topic.Shutdown(ctx)
 }
+
+// setName sets the name of the topic for observer callbacks.
+// This is an internal method used by PubSub to configure topic names.
+func (t *topicWithHistory) setName(name string) {
+	t.topic.setName(name)
+}
