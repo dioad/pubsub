@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"context"
 	"hash/fnv"
 	"sync"
 )
@@ -18,22 +19,31 @@ type shard struct {
 type shardedPubSub struct {
 	shards    [numShards]shard
 	topicFunc func() Topic
+	observer  Observer
 }
 
 // NewShardedPubSub creates a new sharded PubSub instance optimized for
 // high-concurrency scenarios. It distributes topics across 16 shards
-// to minimize lock contention.
+// to minimize lock contention by reducing the frequency of global lock acquisition.
+// This is particularly beneficial when many topics are being created or accessed
+// simultaneously by different goroutines.
 func NewShardedPubSub(opt ...Opt) PubSub {
 	ps := &shardedPubSub{
-		topicFunc: NewTopic,
+		topicFunc: nil,
+		observer:  NoopObserver{},
 	}
 
 	// Apply options
-	wrapper := &pubSub{topicFunc: ps.topicFunc}
+	wrapper := &pubSub{observer: ps.observer}
 	for _, o := range opt {
 		o(wrapper)
 	}
+	ps.observer = wrapper.observer
 	ps.topicFunc = wrapper.topicFunc
+
+	if ps.topicFunc == nil {
+		ps.topicFunc = func() Topic { return NewTopic(WithTopicObserver(ps.observer)) }
+	}
 
 	return ps
 }
@@ -65,6 +75,11 @@ func (ps *shardedPubSub) Topic(topic string) Topic {
 	}
 
 	t := ps.topicFunc()
+	if ot, ok := t.(*pubsubTopic); ok {
+		ot.name = topic
+	} else if ht, ok := t.(*topicWithHistory); ok {
+		ht.topic.name = topic
+	}
 	s.topics.Store(topic, t)
 	return t
 }
@@ -136,12 +151,14 @@ func (ps *shardedPubSub) SubscribeAllUnbuffered() <-chan interface{} {
 }
 
 // AddFeeder registers a Feeder for message feeding.
-func (ps *shardedPubSub) AddFeeder(f Feeder) {
-	ps.AddFeedingFunc(f.Feed)
+// The context can be used to cancel the feeding process.
+func (ps *shardedPubSub) AddFeeder(ctx context.Context, f Feeder) {
+	ps.AddFeedingFunc(ctx, f.Feed)
 }
 
 // AddFeedingFunc registers a FeedingFunc for message feeding.
-func (ps *shardedPubSub) AddFeedingFunc(f FeedingFunc) {
+// The context can be used to cancel the feeding process.
+func (ps *shardedPubSub) AddFeedingFunc(ctx context.Context, f FeedingFunc) {
 	if f == nil {
 		return
 	}
@@ -150,21 +167,31 @@ func (ps *shardedPubSub) AddFeedingFunc(f FeedingFunc) {
 		if feedChan == nil {
 			return
 		}
-		for eventTuple := range feedChan {
-			if eventTuple != nil {
-				ps.Publish(eventTuple.Topic, eventTuple.Event)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case eventTuple, ok := <-feedChan:
+				if !ok {
+					return
+				}
+				if eventTuple != nil {
+					ps.Publish(eventTuple.Topic, eventTuple.Event)
+				}
 			}
 		}
 	}()
 }
 
 // AddFeederReliable registers a Feeder using reliable delivery.
-func (ps *shardedPubSub) AddFeederReliable(f Feeder) {
-	ps.AddFeedingFuncReliable(f.Feed)
+// The context can be used to cancel the feeding process.
+func (ps *shardedPubSub) AddFeederReliable(ctx context.Context, f Feeder) {
+	ps.AddFeedingFuncReliable(ctx, f.Feed)
 }
 
 // AddFeedingFuncReliable registers a FeedingFunc using reliable delivery.
-func (ps *shardedPubSub) AddFeedingFuncReliable(f FeedingFunc) {
+// The context can be used to cancel the feeding process.
+func (ps *shardedPubSub) AddFeedingFuncReliable(ctx context.Context, f FeedingFunc) {
 	if f == nil {
 		return
 	}
@@ -173,10 +200,48 @@ func (ps *shardedPubSub) AddFeedingFuncReliable(f FeedingFunc) {
 		if feedChan == nil {
 			return
 		}
-		for eventTuple := range feedChan {
-			if eventTuple != nil {
-				ps.PublishReliable(eventTuple.Topic, eventTuple.Event)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case eventTuple, ok := <-feedChan:
+				if !ok {
+					return
+				}
+				if eventTuple != nil {
+					ps.PublishReliable(eventTuple.Topic, eventTuple.Event)
+				}
 			}
 		}
 	}()
+}
+
+// Shutdown gracefully shuts down the PubSub instance, closing all topics and subscriptions.
+// The context can be used to set a timeout for the shutdown process.
+func (ps *shardedPubSub) Shutdown(ctx context.Context) {
+	for i := 0; i < numShards; i++ {
+		ps.shards[i].mu.Lock()
+		ps.shards[i].topics.Range(func(key, value any) bool {
+			select {
+			case <-ctx.Done():
+				return false
+			default:
+				value.(Topic).Close()
+				return true
+			}
+		})
+		ps.shards[i].topics = sync.Map{}
+		ps.shards[i].mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+	}
+}
+
+// Close is an alias for Shutdown with a background context.
+func (ps *shardedPubSub) Close() {
+	ps.Shutdown(context.Background())
 }

@@ -1,17 +1,42 @@
 package pubsub
 
 import (
+	"context"
 	"sync"
 )
 
+// Observer is an interface for components that want to observe events in the PubSub system.
+type Observer interface {
+	// OnPublish is called when a message is published to a topic.
+	OnPublish(topic string, msg interface{})
+	// OnSubscribe is called when a new subscription is created for a topic.
+	OnSubscribe(topic string)
+	// OnUnsubscribe is called when a subscription is removed from a topic.
+	OnUnsubscribe(topic string)
+}
+
+// NoopObserver is an Observer that does nothing.
+type NoopObserver struct{}
+
+func (o NoopObserver) OnPublish(topic string, msg interface{}) {}
+func (o NoopObserver) OnSubscribe(topic string)                {}
+func (o NoopObserver) OnUnsubscribe(topic string)              {}
+
 // Opt is a functional option for configuring a PubSub instance.
 type Opt func(*pubSub)
+
+// WithObserver sets the observer for the PubSub instance.
+func WithObserver(o Observer) Opt {
+	return func(ps *pubSub) {
+		ps.observer = o
+	}
+}
 
 // WithHistorySize enables message history for all topics created by the PubSub instance.
 // It sets the maximum number of historical messages to store per topic.
 func WithHistorySize(size int) Opt {
 	return func(ps *pubSub) {
-		ps.topicFunc = func() Topic { return NewTopicWithHistory(size) }
+		ps.topicFunc = func() Topic { return NewTopic(WithHistory(size), WithTopicObserver(ps.observer)) }
 	}
 }
 
@@ -37,6 +62,13 @@ type FeedingFunc func() <-chan *EventTuple
 // and callback-based message handling. The interface provides message history
 // capabilities when enabled, and supports a special "*" topic that receives
 // all messages from all topics.
+//
+// There are two main implementations of the PubSub interface:
+//   - Default PubSub (NewPubSub): Appropriate for most use cases with a moderate
+//     number of topics and message rates.
+//   - Sharded PubSub (NewShardedPubSub): Optimized for high-concurrency scenarios
+//     with many topics, reducing lock contention by sharding topics across
+//     multiple internal maps.
 //
 // Basic usage:
 //
@@ -67,13 +99,15 @@ type PubSub interface {
 	// The Feeder should implement the Feed method, which returns a channel that emits
 	// EventTuple instances. Each EventTuple contains the topic and the event message.
 	// This allows for dynamic message feeding into the PubSub system.
-	AddFeeder(f Feeder)
+	// The context can be used to cancel the feeding process.
+	AddFeeder(ctx context.Context, f Feeder)
 
 	// AddFeedingFunc registers a FeedingFunc that will provide messages to the PubSub system.
 	// The FeedingFunc should return a channel that emits EventTuple instances.
 	// Each EventTuple contains the topic and the event message.
 	// This allows for dynamic message feeding into the PubSub system.
-	AddFeedingFunc(f FeedingFunc)
+	// The context can be used to cancel the feeding process.
+	AddFeedingFunc(ctx context.Context, f FeedingFunc)
 
 	// Topic returns a Topic instance for the given topic name.
 	// If the topic doesn't exist, it creates a new one.
@@ -117,10 +151,12 @@ type PubSub interface {
 	PublishReliable(topic string, msg ...interface{}) int
 
 	// AddFeederReliable registers a Feeder that will provide messages to the PubSub system using reliable delivery.
-	AddFeederReliable(f Feeder)
+	// The context can be used to cancel the feeding process.
+	AddFeederReliable(ctx context.Context, f Feeder)
 
 	// AddFeedingFuncReliable registers a FeedingFunc that will provide messages to the PubSub system using reliable delivery.
-	AddFeedingFuncReliable(f FeedingFunc)
+	// The context can be used to cancel the feeding process.
+	AddFeedingFuncReliable(ctx context.Context, f FeedingFunc)
 
 	// SubscribeUnbuffered creates a subscription to a specific topic and returns an unbuffered channel.
 	// This should be used with PublishReliable for guaranteed message delivery.
@@ -128,6 +164,13 @@ type PubSub interface {
 
 	// SubscribeAllUnbuffered creates a subscription to all topics and returns an unbuffered channel.
 	SubscribeAllUnbuffered() <-chan interface{}
+
+	// Shutdown gracefully shuts down the PubSub instance, closing all topics and subscriptions.
+	// The context can be used to set a timeout for the shutdown process.
+	Shutdown(ctx context.Context)
+
+	// Close is an alias for Shutdown with a background context.
+	Close()
 }
 
 // pubSub is a simple publish/subscribe implementation
@@ -139,19 +182,27 @@ type pubSub struct {
 	mu          sync.RWMutex
 	subscribers map[string]Topic
 	topicFunc   func() Topic
+	observer    Observer
 }
 
-// NewPubSub creates a new pubSub instance
-// Optionally pass WithHistorySize to enable history
-// and set the size of the history buffer
+// NewPubSub creates a new default PubSub instance.
+// This implementation uses a single map and mutex for topic management,
+// which is efficient for most applications with a standard number of topics.
+// Optionally pass WithHistorySize to enable history for all topics
+// and set the size of the history buffer.
 func NewPubSub(opt ...Opt) PubSub {
 	ps := &pubSub{
 		subscribers: make(map[string]Topic),
-		topicFunc:   NewTopic,
+		topicFunc:   nil, // Will be initialized below
+		observer:    NoopObserver{},
 	}
 
 	for _, o := range opt {
 		o(ps)
+	}
+
+	if ps.topicFunc == nil {
+		ps.topicFunc = func() Topic { return NewTopic(WithTopicObserver(ps.observer)) }
 	}
 
 	return ps
@@ -205,7 +256,13 @@ func (ps *pubSub) Topic(topic string) Topic {
 	defer ps.mu.Unlock()
 
 	if _, ok := ps.subscribers[topic]; !ok {
-		ps.subscribers[topic] = ps.topicFunc()
+		t := ps.topicFunc()
+		if ot, ok := t.(*pubsubTopic); ok {
+			ot.name = topic
+		} else if ht, ok := t.(*topicWithHistory); ok {
+			ht.topic.name = topic
+		}
+		ps.subscribers[topic] = t
 	}
 	return ps.subscribers[topic]
 }
@@ -258,12 +315,14 @@ func (ps *pubSub) SubscribeAllUnbuffered() <-chan interface{} {
 // The Feeder should implement the Feed method, which returns a channel that emits
 // EventTuple instances. Each EventTuple contains the topic and the event message.
 // This allows for dynamic message feeding into the PubSub system.
-func (ps *pubSub) AddFeeder(f Feeder) {
-	ps.AddFeedingFunc(f.Feed)
+// The context can be used to cancel the feeding process.
+func (ps *pubSub) AddFeeder(ctx context.Context, f Feeder) {
+	ps.AddFeedingFunc(ctx, f.Feed)
 }
 
 // AddFeedingFunc registers a FeedingFunc that will provide messages to the PubSub system.
-func (ps *pubSub) AddFeedingFunc(f FeedingFunc) {
+// The context can be used to cancel the feeding process.
+func (ps *pubSub) AddFeedingFunc(ctx context.Context, f FeedingFunc) {
 	if f == nil {
 		return
 	}
@@ -272,21 +331,31 @@ func (ps *pubSub) AddFeedingFunc(f FeedingFunc) {
 		if feedChan == nil {
 			return
 		}
-		for eventTuple := range feedChan {
-			if eventTuple != nil {
-				ps.Publish(eventTuple.Topic, eventTuple.Event)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case eventTuple, ok := <-feedChan:
+				if !ok {
+					return
+				}
+				if eventTuple != nil {
+					ps.Publish(eventTuple.Topic, eventTuple.Event)
+				}
 			}
 		}
 	}()
 }
 
 // AddFeederReliable registers a Feeder that will provide messages using reliable delivery.
-func (ps *pubSub) AddFeederReliable(f Feeder) {
-	ps.AddFeedingFuncReliable(f.Feed)
+// The context can be used to cancel the feeding process.
+func (ps *pubSub) AddFeederReliable(ctx context.Context, f Feeder) {
+	ps.AddFeedingFuncReliable(ctx, f.Feed)
 }
 
 // AddFeedingFuncReliable registers a FeedingFunc that will provide messages using reliable delivery.
-func (ps *pubSub) AddFeedingFuncReliable(f FeedingFunc) {
+// The context can be used to cancel the feeding process.
+func (ps *pubSub) AddFeedingFuncReliable(ctx context.Context, f FeedingFunc) {
 	if f == nil {
 		return
 	}
@@ -295,10 +364,40 @@ func (ps *pubSub) AddFeedingFuncReliable(f FeedingFunc) {
 		if feedChan == nil {
 			return
 		}
-		for eventTuple := range feedChan {
-			if eventTuple != nil {
-				ps.PublishReliable(eventTuple.Topic, eventTuple.Event)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case eventTuple, ok := <-feedChan:
+				if !ok {
+					return
+				}
+				if eventTuple != nil {
+					ps.PublishReliable(eventTuple.Topic, eventTuple.Event)
+				}
 			}
 		}
 	}()
+}
+
+// Shutdown gracefully shuts down the PubSub instance, closing all topics and subscriptions.
+// The context can be used to set a timeout for the shutdown process.
+func (ps *pubSub) Shutdown(ctx context.Context) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	for _, topic := range ps.subscribers {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			topic.Close()
+		}
+	}
+	ps.subscribers = make(map[string]Topic)
+}
+
+// Close is an alias for Shutdown with a background context.
+func (ps *pubSub) Close() {
+	ps.Shutdown(context.Background())
 }

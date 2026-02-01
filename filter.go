@@ -5,7 +5,36 @@ package pubsub
 
 import (
 	"reflect"
+	"sync/atomic"
 )
+
+// DropMetrics tracks statistics about dropped messages in channel operations.
+type DropMetrics struct {
+	// DroppedCount is the total number of messages dropped due to full buffers.
+	DroppedCount uint64
+	// FilteredCount is the total number of messages filtered out (not matching criteria).
+	FilteredCount uint64
+}
+
+// IncrementDropped atomically increments the dropped count.
+func (m *DropMetrics) IncrementDropped() {
+	atomic.AddUint64(&m.DroppedCount, 1)
+}
+
+// IncrementFiltered atomically increments the filtered count.
+func (m *DropMetrics) IncrementFiltered() {
+	atomic.AddUint64(&m.FilteredCount, 1)
+}
+
+// GetDropped returns the current dropped count.
+func (m *DropMetrics) GetDropped() uint64 {
+	return atomic.LoadUint64(&m.DroppedCount)
+}
+
+// GetFiltered returns the current filtered count.
+func (m *DropMetrics) GetFiltered() uint64 {
+	return atomic.LoadUint64(&m.FilteredCount)
+}
 
 // ApplyChan creates a new channel by applying a transformation function to each message
 // from the input channel. If the transformation function returns an error,
@@ -21,27 +50,42 @@ import (
 //	    return "", errors.New("not a string")
 //	})
 func ApplyChan[A any, B any](s <-chan A, f func(A) (B, error)) <-chan B {
+	out, _ := ApplyChanWithMetrics(s, f, nil)
+	return out
+}
+
+// ApplyChanWithMetrics is like ApplyChan but also tracks dropped message statistics.
+// If metrics is non-nil, it will be updated with counts of filtered and dropped messages.
+// Returns both the output channel and the metrics object for observation.
+//
+// Example:
+//
+//	metrics := &pubsub.DropMetrics{}
+//	stringCh, _ := ApplyChanWithMetrics(rawCh, transformFunc, metrics)
+//	// Later: check metrics.GetDropped() for buffer overflow count
+func ApplyChanWithMetrics[A any, B any](s <-chan A, f func(A) (B, error), metrics *DropMetrics) (<-chan B, *DropMetrics) {
+	if metrics == nil {
+		metrics = &DropMetrics{}
+	}
 	out := make(chan B, cap(s))
 	go func() {
 		defer close(out)
 		for msg := range s {
 			b, err := f(msg)
 			if err != nil {
-				// Handle error (e.g., log it, send to an error channel, etc.)
-				continue // Skip this message if there's an error
+				metrics.IncrementFiltered()
+				continue
 			}
 			select {
 			case out <- b:
 				// Message sent successfully
 			default:
-				// Log or handle the case where the output channel is full
-				// This prevents deadlocks if the output channel is full
-				// and the function is trying to send a message.
-				// Channel is full, skip this message
+				// Channel is full, message dropped
+				metrics.IncrementDropped()
 			}
 		}
 	}()
-	return out
+	return out, metrics
 }
 
 // FilterChan returns a channel that will receive messages from the input channel that pass a filter function.

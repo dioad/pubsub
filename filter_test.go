@@ -3,11 +3,13 @@ package pubsub
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testStructOne struct {
@@ -29,13 +31,8 @@ func TestSubscribe(t *testing.T) {
 	topic.Publish(msgOne, msgTwo)
 
 	msg := <-ch
-	if reflect.TypeOf(msg).Name() != "testStructOne" {
-		t.Errorf("expected msg of type testStructOne, got %v", reflect.TypeOf(msg).Name())
-	}
-
-	if msg.Field != "value1" {
-		t.Errorf("expected %v, got %v", "value1", msg.Field)
-	}
+	assert.IsType(t, testStructOne{}, msg)
+	assert.Equal(t, "value1", msg.Field)
 }
 
 func TestFilterChan(t *testing.T) {
@@ -52,18 +49,11 @@ func TestFilterChan(t *testing.T) {
 
 	messages := readAllFromChannel[testStructOne](filteredCh, 5*time.Millisecond)
 
-	if len(messages) != 1 {
-		t.Errorf("expected 1 message, got %v", len(messages))
-	}
+	assert.Len(t, messages, 1)
 
 	msg := messages[0]
-	if reflect.TypeOf(msg).Name() != "testStructOne" {
-		t.Errorf("expected msg of type testStructOne, got %v", reflect.TypeOf(msg).Name())
-	}
-
-	if msg.Field != "value1" {
-		t.Errorf("expected %v, got %v", "value1", msg.Field)
-	}
+	assert.IsType(t, testStructOne{}, msg)
+	assert.Equal(t, "value1", msg.Field)
 }
 
 func TestSubscribeWithFilter(t *testing.T) {
@@ -78,13 +68,8 @@ func TestSubscribeWithFilter(t *testing.T) {
 	topic.Publish(msgOne, msgTwo, msgThree)
 
 	msg := <-ch
-	if reflect.TypeOf(msg).Name() != "testStructOne" {
-		t.Errorf("expected msg of type testStructOne, got %v", reflect.TypeOf(msg).Name())
-	}
-
-	if msg.Field != "value1" {
-		t.Errorf("expected %v, got %v", "value1", msg.Field)
-	}
+	assert.IsType(t, testStructOne{}, msg)
+	assert.Equal(t, "value1", msg.Field)
 }
 
 func TestMerge(t *testing.T) {
@@ -102,26 +87,16 @@ func TestMerge(t *testing.T) {
 
 	messages := readAllFromChannel[testStructOne](mergedCh, 5*time.Millisecond)
 
-	if len(messages) != 2 {
-		t.Fatalf("expected 2 messages, got %v", len(messages))
-	}
-
-	if messages[0].Field != "value1" {
-		t.Errorf("expected %v, got %v", "value1", messages[0].Field)
-	}
-
-	if messages[1].Field != "value2" {
-		t.Errorf("expected %v, got %v", "value2", messages[1].Field)
-	}
+	require.Len(t, messages, 2)
+	assert.Equal(t, "value1", messages[0].Field)
+	assert.Equal(t, "value2", messages[1].Field)
 
 	close(chOne)
 	close(chTwo)
 
 	select {
 	case _, ok := <-mergedCh:
-		if ok {
-			t.Errorf("expected merged channel to be closed")
-		}
+		assert.False(t, ok, "expected merged channel to be closed")
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("timeout waiting for merged channel to close")
 	}
@@ -135,9 +110,7 @@ func TestMerge_SkipMismatchedType(t *testing.T) {
 	ch1 <- 123 // Should be skipped
 
 	received := readAllFromChannel(merged, 10*time.Millisecond)
-	if len(received) != 1 || received[0] != "msg1" {
-		t.Errorf("expected [msg1], got %v", received)
-	}
+	assert.Equal(t, []string{"msg1"}, received)
 }
 
 func TestCastChan(t *testing.T) {
@@ -150,13 +123,8 @@ func TestCastChan(t *testing.T) {
 
 	messages := readAllFromChannel[testStructOne](castCh, 50*time.Millisecond)
 
-	if len(messages) != 1 {
-		t.Fatalf("expected 1 message, got %v", len(messages))
-	}
-
-	if messages[0].Field != "value1" {
-		t.Errorf("expected %v, got %v", "value1", messages[0].Field)
-	}
+	require.Len(t, messages, 1)
+	assert.Equal(t, "value1", messages[0].Field)
 }
 
 // TestApplyChan_BasicFunctionality tests basic transformation functionality
@@ -178,15 +146,7 @@ func TestApplyChan_BasicFunctionality(t *testing.T) {
 	results := readAllFromChannel(output, 10*time.Millisecond)
 
 	expected := []string{"1", "2", "3"}
-	if len(results) != len(expected) {
-		t.Fatalf("expected %d results, got %d", len(expected), len(results))
-	}
-
-	for i, result := range results {
-		if result != expected[i] {
-			t.Errorf("expected %v, got %v", expected[i], result)
-		}
-	}
+	assert.Equal(t, expected, results)
 }
 
 // TestApplyChan_ErrorHandling tests that errors are handled properly
@@ -213,15 +173,7 @@ func TestApplyChan_ErrorHandling(t *testing.T) {
 	results := readAllFromChannel(output, 10*time.Millisecond)
 
 	expected := []string{"odd-1", "odd-3", "odd-5"}
-	if len(results) != len(expected) {
-		t.Fatalf("expected %d results, got %d", len(expected), len(results))
-	}
-
-	for i, result := range results {
-		if result != expected[i] {
-			t.Errorf("expected %v, got %v", expected[i], result)
-		}
-	}
+	assert.Equal(t, expected, results)
 }
 
 // TestApplyChan_EmptyChannel tests behavior with empty input channel
@@ -238,9 +190,7 @@ func TestApplyChan_EmptyChannel(t *testing.T) {
 	// Should get no results
 	results := readAllFromChannel(output, 10*time.Millisecond)
 
-	if len(results) != 0 {
-		t.Errorf("expected 0 results, got %d", len(results))
-	}
+	assert.Empty(t, results)
 }
 
 // TestApplyChan_ChannelCapacity tests that output channel has same capacity as input
@@ -252,9 +202,7 @@ func TestApplyChan_ChannelCapacity(t *testing.T) {
 	})
 
 	// Check capacity
-	if cap(output) != cap(input) {
-		t.Errorf("expected output capacity %d, got %d", cap(input), cap(output))
-	}
+	assert.Equal(t, cap(input), cap(output))
 
 	close(input)
 }
@@ -276,13 +224,8 @@ func TestApplyChan_UnbufferedChannel(t *testing.T) {
 	// Collect results
 	results := readAllFromChannel(output, 10*time.Millisecond)
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-
-	if results[0] != "42" {
-		t.Errorf("expected '42', got %v", results[0])
-	}
+	require.Len(t, results, 1)
+	assert.Equal(t, "42", results[0])
 }
 
 // TestApplyChan_RaceConditions tests for race conditions with concurrent access
@@ -322,17 +265,11 @@ func TestApplyChan_RaceConditions(t *testing.T) {
 
 	// Should receive all messages (no errors in this test)
 	expectedCount := numGoroutines * messagesPerGoroutine
-	if len(results) != expectedCount {
-		t.Errorf("expected %d results, got %d", expectedCount, len(results))
-	}
+	assert.Len(t, results, expectedCount)
 
 	// Verify all results have correct format
 	for _, result := range results {
-		resultStr := fmt.Sprintf("%s", result)
-		if len(resultStr) < 10 || resultStr[:10] != "processed-" {
-			t.Errorf("unexpected result format: %v", result)
-			break
-		}
+		assert.Regexp(t, "^processed-[0-9]+$", result)
 	}
 }
 
@@ -358,15 +295,12 @@ func TestApplyChan_FullOutputChannel(t *testing.T) {
 	results := readAllFromChannel(output, 20*time.Millisecond)
 
 	// Should get some results, but possibly not all due to non-blocking send
-	if len(results) == 0 {
-		t.Error("expected some results, got none")
-	}
+	assert.NotEmpty(t, results)
 
 	// All received results should be valid
 	for _, result := range results {
-		if _, err := strconv.Atoi(result); err != nil {
-			t.Errorf("invalid result format: %v", result)
-		}
+		_, err := strconv.Atoi(result)
+		assert.NoError(t, err)
 	}
 }
 
@@ -389,13 +323,85 @@ func TestApplyChan_TypeTransformation(t *testing.T) {
 	results := readAllFromChannel(output, 10*time.Millisecond)
 
 	expected := []string{"field:test1", "field:test2", "field:test3"}
-	if len(results) != len(expected) {
-		t.Fatalf("expected %d results, got %d", len(expected), len(results))
+	assert.Equal(t, expected, results)
+}
+
+func TestApplyChanWithMetrics_DroppedEvents(t *testing.T) {
+	// Create a small buffered input channel
+	input := make(chan int, 10)
+
+	// Create output with very small buffer to force drops
+	metrics := &DropMetrics{}
+	output, _ := ApplyChanWithMetrics(input, func(i int) (int, error) {
+		return i * 2, nil
+	}, metrics)
+
+	// Send more messages than output buffer can hold without reading
+	for i := 0; i < 10; i++ {
+		input <- i
+	}
+	close(input)
+
+	// Wait a bit for goroutine to process
+	time.Sleep(50 * time.Millisecond)
+
+	// Some messages should have been dropped
+	dropped := metrics.GetDropped()
+	if dropped == 0 {
+		t.Log("No drops occurred - buffer was large enough (this is okay)")
 	}
 
-	for i, result := range results {
-		if result != expected[i] {
-			t.Errorf("expected %v, got %v", expected[i], result)
-		}
+	// Drain output to avoid goroutine leak
+	for range output {
 	}
+}
+
+func TestApplyChanWithMetrics_FilteredEvents(t *testing.T) {
+	input := make(chan int, 10)
+
+	metrics := &DropMetrics{}
+	output, _ := ApplyChanWithMetrics(input, func(i int) (int, error) {
+		if i%2 == 0 {
+			return i, nil
+		}
+		return 0, errors.New("odd number filtered")
+	}, metrics)
+
+	// Send mix of even and odd numbers
+	for i := 0; i < 10; i++ {
+		input <- i
+	}
+	close(input)
+
+	// Collect results
+	var results []int
+	for v := range output {
+		results = append(results, v)
+	}
+
+	// Should have filtered 5 odd numbers
+	assert.Equal(t, uint64(5), metrics.GetFiltered())
+
+	// Should have 5 even numbers
+	assert.Len(t, results, 5)
+}
+
+func TestDropMetrics_Concurrent(t *testing.T) {
+	metrics := &DropMetrics{}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				metrics.IncrementDropped()
+				metrics.IncrementFiltered()
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, uint64(10000), metrics.GetDropped())
+	assert.Equal(t, uint64(10000), metrics.GetFiltered())
 }

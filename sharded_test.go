@@ -3,6 +3,8 @@ package pubsub
 import (
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRingBuffer_Basic(t *testing.T) {
@@ -14,12 +16,8 @@ func TestRingBuffer_Basic(t *testing.T) {
 	rb.Push("c")
 
 	all := rb.GetAll()
-	if len(all) != 3 {
-		t.Errorf("expected 3 items, got %d", len(all))
-	}
-	if all[0] != "a" || all[1] != "b" || all[2] != "c" {
-		t.Errorf("unexpected items: %v", all)
-	}
+	assert.Len(t, all, 3)
+	assert.Equal(t, []interface{}{"a", "b", "c"}, all)
 }
 
 func TestRingBuffer_Overflow(t *testing.T) {
@@ -33,13 +31,9 @@ func TestRingBuffer_Overflow(t *testing.T) {
 	rb.Push("e")
 
 	all := rb.GetAll()
-	if len(all) != 3 {
-		t.Errorf("expected 3 items after overflow, got %d", len(all))
-	}
+	assert.Len(t, all, 3)
 	// Should have the last 3 items
-	if all[0] != "c" || all[1] != "d" || all[2] != "e" {
-		t.Errorf("unexpected items after overflow: %v", all)
-	}
+	assert.Equal(t, []interface{}{"c", "d", "e"}, all)
 }
 
 func TestRingBuffer_Concurrent(t *testing.T) {
@@ -70,9 +64,7 @@ func TestRingBuffer_Concurrent(t *testing.T) {
 
 	wg.Wait()
 
-	if rb.Len() != 100 {
-		t.Errorf("expected length 100, got %d", rb.Len())
-	}
+	assert.Equal(t, 100, rb.Len())
 }
 
 func TestShardedPubSub_Basic(t *testing.T) {
@@ -87,9 +79,7 @@ func TestShardedPubSub_Basic(t *testing.T) {
 	n := ps.Publish("test", "hello", "world")
 	// n counts successful channel sends; each message goes to 1 subscriber on "test" + 0 on "*" (no subscriber yet)
 	// So with 2 messages and 1 subscriber, we expect 2 deliveries
-	if n < 1 {
-		t.Errorf("expected at least 1 delivery, got %d", n)
-	}
+	assert.GreaterOrEqual(t, n, 1)
 
 	ps.Unsubscribe("test", ch)
 }
@@ -187,13 +177,11 @@ func TestShardedPubSub_Topics(t *testing.T) {
 	topics := ps.Topics()
 
 	// Should have 3 topics + "*" (catch-all)
-	if len(topics) < 3 {
-		t.Errorf("expected at least 3 topics, got %d: %v", len(topics), topics)
-	}
+	assert.GreaterOrEqual(t, len(topics), 3)
 }
 
 func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
-	topic := NewTopicWithLockFreeHistory(10)
+	topic := NewTopic(WithLockFreeHistoryOpt(10))
 
 	// Publish some messages
 	topic.Publish("a", "b", "c")
@@ -210,15 +198,13 @@ func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
 		}
 	}
 
-	if len(received) < 3 {
-		t.Errorf("expected 3 historical messages, got %d", len(received))
-	}
+	assert.Len(t, received, 3)
 
 	topic.Unsubscribe(ch)
 }
 
 func TestTopicWithLockFreeHistory_Concurrent(t *testing.T) {
-	topic := NewTopicWithLockFreeHistory(100)
+	topic := NewTopic(WithLockFreeHistoryOpt(100))
 
 	ch := topic.Subscribe()
 	go func() {

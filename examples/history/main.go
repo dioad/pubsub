@@ -47,7 +47,7 @@ func main() {
 	fmt.Println("=========================")
 
 	// Create a topic with history directly
-	topic := pubsub.NewTopicWithHistory(5)
+	topic := pubsub.NewTopic(pubsub.WithHistory(5))
 
 	// Publish some messages to the topic
 	fmt.Println("Publishing messages to topic before subscribing...")
@@ -68,7 +68,7 @@ func main() {
 	fmt.Println("\nDemonstrating history size limit...")
 
 	// Create a topic with small history
-	limitedTopic := pubsub.NewTopicWithHistory(2)
+	limitedTopic := pubsub.NewTopic(pubsub.WithHistory(2))
 
 	// Publish more messages than the history size
 	limitedTopic.Publish("Limited 1")

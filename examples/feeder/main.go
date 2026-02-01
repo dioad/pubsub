@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -66,8 +67,8 @@ func main() {
 	feeder := newExampleFeeder(0, 25)
 	feeder2 := newExampleFeeder(25, 25) // Create another feeder for more events
 	// Add the Feeder to the PubSub instance using reliable delivery
-	ps.AddFeeder(feeder)
-	ps.AddFeeder(feeder2)
+	ps.AddFeeder(context.Background(), feeder)
+	ps.AddFeeder(context.Background(), feeder2)
 	// Subscribe to a topic to receive events
 	topic := ps.Topic("example-topic")
 	sub := topic.Subscribe() // Use unbuffered channel with reliable delivery

@@ -4,16 +4,16 @@ package pubsub
 // ring buffer for history storage. This eliminates mutex contention in the
 // Publish hot path.
 type topicWithLockFreeHistory struct {
-	topic   *topic
+	topic   *pubsubTopic
 	history *ringBuffer
 }
 
-// NewTopicWithLockFreeHistory creates a new Topic with lock-free history.
+// newTopicWithLockFreeHistory creates a new Topic with lock-free history.
 // This provides better performance under high concurrency compared to
-// NewTopicWithHistory which uses mutex-protected slice history.
-func NewTopicWithLockFreeHistory(size int) Topic {
+// newTopicWithHistory which uses mutex-protected slice history.
+func newTopicWithLockFreeHistory(o Observer, size int) Topic {
 	return &topicWithLockFreeHistory{
-		topic:   newTopic(),
+		topic:   newTopic(o),
 		history: newRingBuffer(size),
 	}
 }
@@ -91,10 +91,15 @@ func (t *topicWithLockFreeHistory) Unsubscribe(ch <-chan any) {
 	t.topic.Unsubscribe(ch)
 }
 
+// Close shuts down the topic and closes all subscription channels.
+func (t *topicWithLockFreeHistory) Close() {
+	t.topic.Close()
+}
+
 // WithLockFreeHistory is an option for NewPubSub/NewShardedPubSub that
 // enables lock-free message history for all topics.
 func WithLockFreeHistory(size int) Opt {
 	return func(ps *pubSub) {
-		ps.topicFunc = func() Topic { return NewTopicWithLockFreeHistory(size) }
+		ps.topicFunc = func() Topic { return NewTopic(WithLockFreeHistoryOpt(size), WithTopicObserver(ps.observer)) }
 	}
 }

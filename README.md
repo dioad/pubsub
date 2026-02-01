@@ -60,9 +60,21 @@ func main() {
 
 A Topic is the basic unit for message distribution. Publishers send messages to a topic, and subscribers receive messages from that topic.
 
+There are several implementations of the Topic interface:
+
+- **Basic Topic**: A simple topic with no history.
+- **Topic with History**: Maintains a history of messages using a mutex-protected slice. Good for most use cases where history is needed.
+- **Topic with Lock-Free History**: Maintains history using a lock-free ring buffer. Recommended for high-concurrency environments to minimize contention on the publish path.
+
 ```go
-// Create a topic directly
+// Create a basic topic
 topic := pubsub.NewTopic()
+
+// Create a topic with history
+topicWithHistory := pubsub.NewTopic(pubsub.WithHistory(10))
+
+// Create a topic with lock-free history for high performance
+topicLockFree := pubsub.NewTopic(pubsub.WithLockFreeHistoryOpt(100))
 
 // Subscribe to the topic
 ch := topic.Subscribe()
@@ -75,9 +87,17 @@ topic.Publish("Hello from topic!")
 
 The PubSub interface manages multiple topics and provides a higher-level API.
 
+There are two main implementations of the PubSub interface:
+
+- **Default PubSub** (`NewPubSub`): Suitable for most applications with a moderate number of topics and message rates. It uses a single map and mutex for topic management.
+- **Sharded PubSub** (`NewShardedPubSub`): Optimized for high-concurrency scenarios with many topics. It reduces lock contention by sharding topics across multiple internal maps.
+
 ```go
-// Create a PubSub instance
+// Create a default PubSub instance
 ps := pubsub.NewPubSub()
+
+// Create a sharded PubSub instance for high concurrency
+psHighConf := pubsub.NewShardedPubSub()
 
 // Subscribe to a specific topic
 ch1 := ps.Subscribe("topic1")
