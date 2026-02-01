@@ -99,12 +99,17 @@ func TestMultipleObserversWithDefaultRegistry(t *testing.T) {
 
 	// Find the counter for "shared-topic" label
 	var sharedTopicValue float64
+	var found bool
 	for _, metric := range publishMetric.GetMetric() {
 		for _, label := range metric.GetLabel() {
 			if label.GetName() == "topic" && label.GetValue() == "shared-topic" {
 				sharedTopicValue = metric.GetCounter().GetValue()
+				found = true
 				break
 			}
+		}
+		if found {
+			break
 		}
 	}
 
