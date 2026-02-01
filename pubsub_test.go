@@ -1,9 +1,11 @@
 package pubsub
 
 import (
-	"slices"
+	"context"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPub_SubscribeAll_WithNoHistory(t *testing.T) {
@@ -17,39 +19,39 @@ func TestPub_SubscribeAll_WithNoHistory(t *testing.T) {
 
 	receivedMessages := readAllFromChannel(ch1, 5*time.Millisecond)
 
-	expectedMessages := []interface{}{"msg3"}
+	expectedMessages := []any{"msg3"}
 
-	if !orderedListsAreEqual(receivedMessages, expectedMessages) {
-		t.Errorf("expected %v, got %v", expectedMessages, receivedMessages)
-	}
+	assert.Equal(t, expectedMessages, receivedMessages)
 }
 
-func orderedListsAreEqual(list1 []interface{}, list2 []interface{}) bool {
-	if len(list1) != len(list2) {
-		return false
+func TestPubSub_DeleteTopic(t *testing.T) {
+	ps := NewPubSub()
+	ch := ps.Subscribe("test")
+	ps.Publish("test", "msg1")
+
+	// Read msg1 to clear the channel
+	<-ch
+
+	ps.DeleteTopic("test")
+
+	select {
+	case _, ok := <-ch:
+		assert.False(t, ok, "expected channel to be closed after DeleteTopic")
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timeout waiting for channel to close after DeleteTopic")
 	}
 
-	for i, item1 := range list1 {
-		if item1 != list2[i] {
-			return false
-		}
-	}
-
-	return true
+	assert.NotContains(t, ps.Topics(), "test")
 }
 
-func unorderedListsAreEqual(list1 []interface{}, list2 []interface{}) bool {
-	if len(list1) != len(list2) {
-		return false
-	}
+func TestPubSub_Drops(t *testing.T) {
+	ps := NewPubSub()
+	_ = ps.SubscribeWithBuffer("test", 0) // Unbuffered
 
-	for _, item1 := range list1 {
-		if !slices.Contains(list2, item1) {
-			return false
-		}
-	}
-
-	return true
+	// We don't read from the channel, so Publish should drop
+	res := ps.Publish("test", "msg1")
+	assert.Equal(t, 1, res.Drops)
+	assert.Equal(t, 0, res.Deliveries)
 }
 
 func TestPubSub_SubscribeAll_WithHistory(t *testing.T) {
@@ -63,11 +65,9 @@ func TestPubSub_SubscribeAll_WithHistory(t *testing.T) {
 
 	receivedMessages := readAllFromChannel(ch1, 5*time.Millisecond)
 
-	expectedMessages := []interface{}{"msg1", "msg2", "msg3"}
+	expectedMessages := []any{"msg1", "msg2", "msg3"}
 
-	if !orderedListsAreEqual(receivedMessages, expectedMessages) {
-		t.Errorf("expected %v, got %v", expectedMessages, receivedMessages)
-	}
+	assert.Equal(t, expectedMessages, receivedMessages)
 }
 
 func readAllFromChannel[T any](ch <-chan T, timePeriod time.Duration) []T {
@@ -101,31 +101,23 @@ func TestPubSub(t *testing.T) {
 
 	receivedMessages := readAllFromChannel(ch4, 5*time.Millisecond)
 
-	expectedMessages := []interface{}{"msg1", "msg2"}
+	expectedMessages := []any{"msg1", "msg2"}
 
-	if msg11 != "msg1" {
-		t.Errorf("expected msg11, got %v", msg11)
-	}
-
-	if msg21 != "msg2" {
-		t.Errorf("expected msg21, got %v", msg21)
-	}
-
-	if !unorderedListsAreEqual(receivedMessages, expectedMessages) {
-		t.Errorf("expected %v, got %v", expectedMessages, receivedMessages)
-	}
+	assert.Equal(t, "msg1", msg11)
+	assert.Equal(t, "msg2", msg21)
+	assert.ElementsMatch(t, expectedMessages, receivedMessages)
 }
 
 func TestPubSub_SubscribeFunc(t *testing.T) {
 	ps := NewPubSub(WithHistorySize(10))
 
-	ch1 := make(chan interface{})
-	ch2 := make(chan interface{})
+	ch1 := make(chan any)
+	ch2 := make(chan any)
 
-	ps.SubscribeFunc("topic1", func(msg interface{}) {
+	ps.SubscribeFunc("topic1", func(msg any) {
 		ch1 <- msg
 	})
-	ps.SubscribeFunc("topic2", func(msg interface{}) {
+	ps.SubscribeFunc("topic2", func(msg any) {
 		ch2 <- msg
 	})
 
@@ -135,20 +127,15 @@ func TestPubSub_SubscribeFunc(t *testing.T) {
 	msg11 := <-ch1
 	msg21 := <-ch2
 
-	if msg11 != "msg1" {
-		t.Errorf("expected msg11, got %v", msg11)
-	}
-
-	if msg21 != "msg2" {
-		t.Errorf("expected msg21, got %v", msg21)
-	}
+	assert.Equal(t, "msg1", msg11)
+	assert.Equal(t, "msg2", msg21)
 }
 
 func TestPubSub_SubscribeAllFunc(t *testing.T) {
 	ps := NewPubSub()
-	ch := make(chan interface{}, 10)
+	ch := make(chan any, 10)
 
-	ps.SubscribeAllFunc(func(msg interface{}) {
+	ps.SubscribeAllFunc(func(msg any) {
 		ch <- msg
 	})
 
@@ -158,11 +145,9 @@ func TestPubSub_SubscribeAllFunc(t *testing.T) {
 	ps.Publish("topic2", "msg2")
 
 	received := readAllFromChannel(ch, 50*time.Millisecond)
-	expected := []interface{}{"msg1", "msg2"}
+	expected := []any{"msg1", "msg2"}
 
-	if !unorderedListsAreEqual(received, expected) {
-		t.Errorf("expected %v, got %v", expected, received)
-	}
+	assert.ElementsMatch(t, expected, received)
 }
 
 func TestPubSub_Topics(t *testing.T) {
@@ -174,22 +159,7 @@ func TestPubSub_Topics(t *testing.T) {
 	topics := ps.Topics()
 	expected := []string{"topic1", "topic2", "topic3", "*"}
 
-	if len(topics) != len(expected) {
-		t.Fatalf("expected %d topics, got %d: %v", len(expected), len(topics), topics)
-	}
-
-	for _, e := range expected {
-		found := false
-		for _, tt := range topics {
-			if e == tt {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected topic %s not found in %v", e, topics)
-		}
-	}
+	assert.ElementsMatch(t, expected, topics)
 }
 
 func TestPubSub_Unsubscribe(t *testing.T) {
@@ -198,18 +168,14 @@ func TestPubSub_Unsubscribe(t *testing.T) {
 
 	ps.Publish("topic1", "msg1")
 	msg := <-ch
-	if msg != "msg1" {
-		t.Errorf("expected msg1, got %v", msg)
-	}
+	assert.Equal(t, "msg1", msg)
 
 	ps.Unsubscribe("topic1", ch)
 
 	// Channel should be closed
 	select {
 	case _, ok := <-ch:
-		if ok {
-			t.Errorf("expected channel to be closed")
-		}
+		assert.False(t, ok, "expected channel to be closed")
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("timeout waiting for channel to close")
 	}
@@ -224,18 +190,14 @@ func TestPubSub_UnsubscribeAll(t *testing.T) {
 
 	ps.Publish("topic1", "msg1")
 	msg := <-ch
-	if msg != "msg1" {
-		t.Errorf("expected msg1, got %v", msg)
-	}
+	assert.Equal(t, "msg1", msg)
 
 	ps.UnsubscribeAll(ch)
 
 	// Channel should be closed
 	select {
 	case _, ok := <-ch:
-		if ok {
-			t.Errorf("expected channel to be closed")
-		}
+		assert.False(t, ok, "expected channel to be closed")
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("timeout waiting for channel to close")
 	}
@@ -254,15 +216,13 @@ func TestPubSub_AddFeeder(t *testing.T) {
 	ch := ps.Subscribe("topic1")
 
 	feeder := &mockFeeder{ch: make(chan *EventTuple, 1)}
-	ps.AddFeeder(feeder)
+	ps.AddFeeder(context.Background(), feeder)
 
 	feeder.ch <- &EventTuple{Topic: "topic1", Event: "msg1"}
 
 	select {
 	case msg := <-ch:
-		if msg != "msg1" {
-			t.Errorf("expected msg1, got %v", msg)
-		}
+		assert.Equal(t, "msg1", msg)
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("timeout waiting for message")
 	}
@@ -274,10 +234,10 @@ func TestPubSub_AddFeedingFunc(t *testing.T) {
 	ps := NewPubSub()
 	ch := ps.Subscribe("topic1")
 
-	ps.AddFeedingFunc(nil)
+	ps.AddFeedingFunc(context.Background(), nil)
 
 	feedCh := make(chan *EventTuple, 1)
-	ps.AddFeedingFunc(func() <-chan *EventTuple {
+	ps.AddFeedingFunc(context.Background(), func() <-chan *EventTuple {
 		return feedCh
 	})
 
@@ -285,15 +245,13 @@ func TestPubSub_AddFeedingFunc(t *testing.T) {
 
 	select {
 	case msg := <-ch:
-		if msg != "msg1" {
-			t.Errorf("expected msg1, got %v", msg)
-		}
+		assert.Equal(t, "msg1", msg)
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("timeout waiting for message")
 	}
 
 	// Test with nil channel from feeding func
-	ps.AddFeedingFunc(func() <-chan *EventTuple {
+	ps.AddFeedingFunc(context.Background(), func() <-chan *EventTuple {
 		return nil
 	})
 
@@ -310,16 +268,14 @@ func TestPubSub_AddFeedingFunc_Multiple(t *testing.T) {
 	feedCh1 := make(chan *EventTuple, 1)
 	feedCh2 := make(chan *EventTuple, 1)
 
-	ps.AddFeedingFunc(func() <-chan *EventTuple { return feedCh1 })
-	ps.AddFeedingFunc(func() <-chan *EventTuple { return feedCh2 })
+	ps.AddFeedingFunc(context.Background(), func() <-chan *EventTuple { return feedCh1 })
+	ps.AddFeedingFunc(context.Background(), func() <-chan *EventTuple { return feedCh2 })
 
 	feedCh1 <- &EventTuple{Topic: "topic1", Event: "msg1"}
 	feedCh2 <- &EventTuple{Topic: "topic1", Event: "msg2"}
 
 	received := readAllFromChannel(ch, 50*time.Millisecond)
-	expected := []interface{}{"msg1", "msg2"}
+	expected := []any{"msg1", "msg2"}
 
-	if !unorderedListsAreEqual(received, expected) {
-		t.Errorf("expected %v, got %v", expected, received)
-	}
+	assert.ElementsMatch(t, expected, received)
 }

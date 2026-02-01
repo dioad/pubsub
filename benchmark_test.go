@@ -30,7 +30,7 @@ func BenchmarkTopicSubscribe(b *testing.B) {
 
 // BenchmarkTopicWithHistoryPublish measures the performance of publishing to a topic with history
 func BenchmarkTopicWithHistoryPublish(b *testing.B) {
-	topic := NewTopicWithHistory(100)
+	topic := NewTopic(WithHistory(100))
 
 	// Subscribe to ensure messages are being processed
 	_ = topic.Subscribe()
@@ -177,7 +177,7 @@ func BenchmarkShardedPubSubWithLockFreeHistory(b *testing.B) {
 
 // BenchmarkTopicWithLockFreeHistoryPublish measures lock-free history topic
 func BenchmarkTopicWithLockFreeHistoryPublish(b *testing.B) {
-	topic := NewTopicWithLockFreeHistory(100)
+	topic := NewTopic(WithLockFreeHistoryOpt(100))
 
 	// Subscribe to ensure messages are being processed
 	_ = topic.Subscribe()

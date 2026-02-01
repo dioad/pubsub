@@ -1,8 +1,11 @@
 package pubsub
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReliableDelivery(t *testing.T) {
@@ -22,15 +25,11 @@ func TestReliableDelivery(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	n := ps.PublishReliable("reliable", "test-msg")
-	if n < 1 {
-		t.Errorf("expected at least 1 delivery, got %d", n)
-	}
+	assert.GreaterOrEqual(t, n, 1)
 
 	select {
 	case msg := <-received:
-		if msg != "test-msg" {
-			t.Errorf("expected test-msg, got %v", msg)
-		}
+		assert.Equal(t, "test-msg", msg)
 	case <-time.After(500 * time.Millisecond):
 		t.Error("timeout waiting for reliable delivery")
 	}
@@ -47,13 +46,8 @@ func TestReliableDeliveryTimeout(t *testing.T) {
 	n := ps.PublishReliable("reliable-timeout", "test-msg")
 	duration := time.Since(start)
 
-	if n != 0 {
-		t.Errorf("expected 0 deliveries to non-reading subscriber, got %d", n)
-	}
-
-	if duration < 100*time.Millisecond {
-		t.Errorf("expected at least 100ms timeout, got %v", duration)
-	}
+	assert.Equal(t, 0, n)
+	assert.GreaterOrEqual(t, duration, 100*time.Millisecond)
 }
 
 func TestAddFeederReliable(t *testing.T) {
@@ -62,7 +56,7 @@ func TestAddFeederReliable(t *testing.T) {
 
 	feederCh := make(chan *EventTuple)
 	feeder := &mockFeeder{ch: feederCh}
-	ps.AddFeederReliable(feeder)
+	ps.AddFeederReliable(context.Background(), feeder)
 
 	received := make(chan any, 1)
 	go func() {
@@ -75,9 +69,7 @@ func TestAddFeederReliable(t *testing.T) {
 
 	select {
 	case msg := <-received:
-		if msg != "feeder-msg" {
-			t.Errorf("expected feeder-msg, got %v", msg)
-		}
+		assert.Equal(t, "feeder-msg", msg)
 	case <-time.After(500 * time.Millisecond):
 		t.Error("timeout waiting for feeder reliable delivery")
 	}
@@ -90,22 +82,16 @@ func TestTopicWithHistoryReliable(t *testing.T) {
 	topic := ps.Topic("history-reliable")
 
 	n := ps.PublishReliable("history-reliable", "msg1", "msg2")
-	if n != 0 {
-		t.Errorf("expected 0 deliveries, got %d", n)
-	}
+	assert.Equal(t, 0, n)
 
 	// New subscriber should receive history
 	ch := topic.Subscribe()
 	received := readAllFromChannel(ch, 50*time.Millisecond)
-	if len(received) != 2 {
-		t.Errorf("expected 2 historical messages, got %d", len(received))
-	}
+	assert.Len(t, received, 2)
 
 	// Test SubscribeUnbuffered on topic with history
 	ch2 := topic.SubscribeUnbuffered()
-	if cap(ch2) != 0 {
-		t.Errorf("expected unbuffered channel, got capacity %d", cap(ch2))
-	}
+	assert.Equal(t, 0, cap(ch2))
 
 	// Test PublishReliable on topicWithHistory with a subscriber
 	ch3 := topic.SubscribeUnbuffered()
@@ -116,9 +102,7 @@ func TestTopicWithHistoryReliable(t *testing.T) {
 	}()
 	time.Sleep(10 * time.Millisecond)
 	n2 := topic.PublishReliable("msg3")
-	if n2 < 1 {
-		t.Errorf("expected at least 1 delivery, got %d", n2)
-	}
+	assert.GreaterOrEqual(t, n2, 1)
 }
 
 func TestSubscribeAllUnbuffered(t *testing.T) {
@@ -136,9 +120,7 @@ func TestSubscribeAllUnbuffered(t *testing.T) {
 
 	select {
 	case msg := <-received:
-		if msg != "all-msg" {
-			t.Errorf("expected all-msg, got %v", msg)
-		}
+		assert.Equal(t, "all-msg", msg)
 	case <-time.After(500 * time.Millisecond):
 		t.Error("timeout waiting for SubscribeAllUnbuffered")
 	}
@@ -146,10 +128,10 @@ func TestSubscribeAllUnbuffered(t *testing.T) {
 
 func TestAddFeedingFuncReliable_Nil(t *testing.T) {
 	ps := NewPubSub()
-	ps.AddFeedingFuncReliable(nil)
+	ps.AddFeedingFuncReliable(context.Background(), nil)
 
 	// Should return nil channel
-	ps.AddFeedingFuncReliable(func() <-chan *EventTuple {
+	ps.AddFeedingFuncReliable(context.Background(), func() <-chan *EventTuple {
 		return nil
 	})
 }
