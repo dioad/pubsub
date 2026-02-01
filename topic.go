@@ -223,16 +223,13 @@ func (t *pubsubTopic) Shutdown(ctx context.Context) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	for range t.subscriptions {
-		t.observer.OnUnsubscribe(t.name)
-	}
-
 	for _, sub := range t.subscriptions {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			close(sub)
+			t.observer.OnUnsubscribe(t.name)
 		}
 	}
 	t.subscriptions = nil
