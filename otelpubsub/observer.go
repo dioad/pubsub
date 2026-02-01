@@ -94,12 +94,6 @@ func (o *otelObserver) OnPublish(topic string, msg any) {
 	// OpenTelemetry Metrics
 	ctx := context.Background()
 	o.msgPublished.Add(ctx, 1, metric.WithAttributes(attribute.String("topic", topic)))
-
-	// OpenTelemetry Tracing
-	_, span := o.tracer.Start(ctx, "pubsub.publish",
-		trace.WithAttributes(attribute.String("topic", topic)),
-	)
-	defer span.End()
 }
 
 func (o *otelObserver) OnDrop(topic string, msg any) {
