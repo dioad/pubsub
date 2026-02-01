@@ -62,3 +62,22 @@ func TestMultipleObserversWithSeparateRegistries(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, metrics2, "registry2 should have metrics")
 }
+
+func TestMultipleObserversWithDefaultRegistry(t *testing.T) {
+	// Create two observers using the default registry
+	// They should share the same Prometheus metrics without panicking
+	observer1 := NewObserver(WithServiceName("test-service-1"))
+	observer2 := NewObserver(WithServiceName("test-service-2"))
+
+	require.NotNil(t, observer1)
+	require.NotNil(t, observer2)
+
+	// Both observers should work without panicking, sharing the same metrics
+	assert.NotPanics(t, func() {
+		observer1.OnPublish("topic1", "message1")
+		observer1.OnSubscribe("topic1")
+
+		observer2.OnPublish("topic2", "message2")
+		observer2.OnSubscribe("topic2")
+	})
+}

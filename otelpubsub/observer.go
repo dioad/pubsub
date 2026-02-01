@@ -54,8 +54,9 @@ func WithPrometheusRegistry(registry prometheus.Registerer) ObserverOpt {
 // and starts traces for message publications. It accepts variadic options for configuration.
 //
 // By default, Prometheus metrics are registered with the global registry (prometheus.DefaultRegisterer).
-// To use multiple independent observers in the same process, provide separate registries using
-// WithPrometheusRegistry option.
+// If multiple observers are created with the default registry, they will share the same Prometheus metrics.
+// To use multiple independent observers with separate metrics in the same process, provide separate
+// registries using the WithPrometheusRegistry option.
 func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	cfg := &observerConfig{
 		serviceName:        "pubsub",
@@ -96,9 +97,23 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	}, []string{"topic"})
 
 	// Register the counters with the provided registry
-	cfg.prometheusRegistry.MustRegister(publishCounter)
-	cfg.prometheusRegistry.MustRegister(subscribeCounter)
-	cfg.prometheusRegistry.MustRegister(unsubscribeCounter)
+	// If metrics are already registered (e.g., when creating multiple observers with the default registry),
+	// use the existing collectors instead
+	if err := cfg.prometheusRegistry.Register(publishCounter); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			publishCounter = are.ExistingCollector.(*prometheus.CounterVec)
+		}
+	}
+	if err := cfg.prometheusRegistry.Register(subscribeCounter); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			subscribeCounter = are.ExistingCollector.(*prometheus.CounterVec)
+		}
+	}
+	if err := cfg.prometheusRegistry.Register(unsubscribeCounter); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			unsubscribeCounter = are.ExistingCollector.(*prometheus.CounterVec)
+		}
+	}
 
 	return &otelObserver{
 		tracer: tracer,
