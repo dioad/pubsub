@@ -3,6 +3,7 @@ package otelpubsub
 
 import (
 	"context"
+	"log"
 
 	"github.com/dioad/pubsub"
 	"github.com/prometheus/client_golang/prometheus"
@@ -105,6 +106,9 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				publishCounter = existing
 			}
+		} else {
+			// Log unexpected registration errors to alert about misconfigurations
+			log.Printf("otelpubsub: failed to register publishCounter: %v", err)
 		}
 	}
 	if err := cfg.prometheusRegistry.Register(subscribeCounter); err != nil {
@@ -113,6 +117,9 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				subscribeCounter = existing
 			}
+		} else {
+			// Log unexpected registration errors to alert about misconfigurations
+			log.Printf("otelpubsub: failed to register subscribeCounter: %v", err)
 		}
 	}
 	if err := cfg.prometheusRegistry.Register(unsubscribeCounter); err != nil {
@@ -121,6 +128,9 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				unsubscribeCounter = existing
 			}
+		} else {
+			// Log unexpected registration errors to alert about misconfigurations
+			log.Printf("otelpubsub: failed to register unsubscribeCounter: %v", err)
 		}
 	}
 
