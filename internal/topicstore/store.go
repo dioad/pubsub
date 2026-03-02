@@ -159,7 +159,7 @@ func (s *ShardedStore) GetOrCreate(name string, factory func() Topic, onCreated 
 
 // Range iterates over all topics across all shards.
 func (s *ShardedStore) Range(fn func(name string, topic Topic) bool) {
-	for i := 0; i < numShards; i++ {
+	for i := range numShards {
 		continueIteration := true
 		s.shards[i].topics.Range(func(key, value any) bool {
 			if !fn(key.(string), value.(Topic)) {
@@ -176,7 +176,7 @@ func (s *ShardedStore) Range(fn func(name string, topic Topic) bool) {
 
 // Clear removes all topics from the store.
 func (s *ShardedStore) Clear() {
-	for i := 0; i < numShards; i++ {
+	for i := range numShards {
 		s.shards[i].mu.Lock()
 		s.shards[i].topics = sync.Map{}
 		s.shards[i].mu.Unlock()
@@ -195,7 +195,7 @@ func (s *ShardedStore) DeleteTopic(name string) {
 
 // Shutdown closes all topics with context support.
 func (s *ShardedStore) Shutdown(ctx context.Context) {
-	for i := 0; i < numShards; i++ {
+	for i := range numShards {
 		s.shards[i].mu.Lock()
 		s.shards[i].topics.Range(func(key, value any) bool {
 			select {

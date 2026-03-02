@@ -52,10 +52,10 @@ func TestRingBuffer_Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < numIterations; j++ {
+			for j := range numIterations {
 				rb.Push(fmt.Sprintf("g%d-i%d", id, j))
 				_ = rb.GetAll()
 			}

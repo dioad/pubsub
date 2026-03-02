@@ -69,7 +69,7 @@ func TestShardedStore(t *testing.T) {
 	s := NewShardedStore()
 
 	// GetOrCreate
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		name := fmt.Sprintf("topic-%d", i)
 		s.GetOrCreate(name, func() Topic {
 			return &mockTopic{}

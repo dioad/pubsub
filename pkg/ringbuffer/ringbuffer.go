@@ -41,10 +41,7 @@ func (rb *RingBuffer) Push(msg any) {
 	// Update count (capped at size)
 	for {
 		current := rb.count.Load()
-		newCount := current + 1
-		if newCount > uint64(rb.size) {
-			newCount = uint64(rb.size)
-		}
+		newCount := min(current+1, uint64(rb.size))
 		if rb.count.CompareAndSwap(current, newCount) {
 			break
 		}
@@ -71,7 +68,7 @@ func (rb *RingBuffer) GetAll() []any {
 	}
 
 	// Read messages in order
-	for i := uint64(0); i < count; i++ {
+	for i := range count {
 		idx := int((startPos + i) % uint64(rb.size))
 		if val := rb.buffer[idx].Load(); val != nil {
 			result = append(result, val)

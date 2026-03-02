@@ -3,14 +3,15 @@ package otelpubsub
 
 import (
 	"context"
-	"log"
+	"errors"
 
-	"github.com/dioad/pubsub"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/dioad/pubsub"
 )
 
 type otelObserver struct {
@@ -101,36 +102,30 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	// If metrics are already registered (e.g., when creating multiple observers with the default registry),
 	// use the existing collectors instead
 	if err := cfg.prometheusRegistry.Register(publishCounter); err != nil {
-		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+		var are prometheus.AlreadyRegisteredError
+		if errors.As(err, &are) {
 			// Safe type assertion: we created the original counter with the same type and labels
 			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				publishCounter = existing
 			}
-		} else {
-			// Log unexpected registration errors to alert about misconfigurations
-			log.Printf("otelpubsub: failed to register publishCounter: %v", err)
 		}
 	}
 	if err := cfg.prometheusRegistry.Register(subscribeCounter); err != nil {
-		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+		var are prometheus.AlreadyRegisteredError
+		if errors.As(err, &are) {
 			// Safe type assertion: we created the original counter with the same type and labels
 			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				subscribeCounter = existing
 			}
-		} else {
-			// Log unexpected registration errors to alert about misconfigurations
-			log.Printf("otelpubsub: failed to register subscribeCounter: %v", err)
 		}
 	}
 	if err := cfg.prometheusRegistry.Register(unsubscribeCounter); err != nil {
-		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+		var are prometheus.AlreadyRegisteredError
+		if errors.As(err, &are) {
 			// Safe type assertion: we created the original counter with the same type and labels
 			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				unsubscribeCounter = existing
 			}
-		} else {
-			// Log unexpected registration errors to alert about misconfigurations
-			log.Printf("otelpubsub: failed to register unsubscribeCounter: %v", err)
 		}
 	}
 

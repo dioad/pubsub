@@ -244,11 +244,11 @@ func TestApplyChan_RaceConditions(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Start multiple goroutines sending data
-	for g := 0; g < numGoroutines; g++ {
+	for g := range numGoroutines {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			for i := 0; i < messagesPerGoroutine; i++ {
+			for i := range messagesPerGoroutine {
 				input <- goroutineID*messagesPerGoroutine + i
 			}
 		}(g)
@@ -283,7 +283,7 @@ func TestApplyChan_FullOutputChannel(t *testing.T) {
 	})
 
 	// Fill input with more data than output buffer can hold
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		input <- i
 	}
 	close(input)
@@ -337,7 +337,7 @@ func TestApplyChanWithMetrics_DroppedEvents(t *testing.T) {
 	}, metrics)
 
 	// Send more messages than output buffer can hold without reading
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		input <- i
 	}
 	close(input)
@@ -368,7 +368,7 @@ func TestApplyChanWithMetrics_FilteredEvents(t *testing.T) {
 	}, metrics)
 
 	// Send mix of even and odd numbers
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		input <- i
 	}
 	close(input)
@@ -390,15 +390,13 @@ func TestDropMetrics_Concurrent(t *testing.T) {
 	metrics := &DropMetrics{}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range 100 {
+		wg.Go(func() {
+			for range 100 {
 				metrics.IncrementDropped()
 				metrics.IncrementFiltered()
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

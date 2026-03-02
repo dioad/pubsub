@@ -27,7 +27,7 @@ func main() {
 	fmt.Println("Reading historical messages:")
 
 	// Read the first 3 messages (which should be the historical ones)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		msg := <-ch
 		fmt.Printf("Historical message received: %v\n", msg)
 	}
@@ -38,7 +38,7 @@ func main() {
 	ps.Publish("news", "Breaking news 5")
 
 	// Read the new messages
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		msg := <-ch
 		fmt.Printf("New message received: %v\n", msg)
 	}
@@ -59,7 +59,7 @@ func main() {
 	topicCh := topic.Subscribe()
 
 	// Read historical messages
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		msg := <-topicCh
 		fmt.Printf("Historical topic message: %v\n", msg)
 	}
@@ -79,7 +79,7 @@ func main() {
 	limitedCh := limitedTopic.Subscribe()
 
 	// Should only receive the last 2 messages
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		msg := <-limitedCh
 		fmt.Printf("Limited history message: %v\n", msg)
 	}

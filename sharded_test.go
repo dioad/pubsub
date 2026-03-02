@@ -42,25 +42,23 @@ func TestRingBuffer_Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrent writers
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < 100; j++ {
+			for j := range 100 {
 				rb.Push(id*100 + j)
 			}
 		}(i)
 	}
 
 	// Concurrent readers
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range 5 {
+		wg.Go(func() {
+			for range 100 {
 				_ = rb.GetAll()
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -98,7 +96,7 @@ func TestShardedPubSub_WithHistory(t *testing.T) {
 
 	// Check channel has historical messages (non-blocking read)
 	count := 0
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		select {
 		case <-ch:
 			count++
@@ -126,7 +124,7 @@ func TestShardedPubSub_WithLockFreeHistory(t *testing.T) {
 
 	// Check channel has historical messages (non-blocking read)
 	count := 0
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		select {
 		case <-ch:
 			count++
@@ -153,7 +151,7 @@ func TestShardedPubSub_SubscribeAll(t *testing.T) {
 
 	// Give a moment for channels to receive
 	count := 0
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		select {
 		case <-allCh:
 			count++
@@ -191,7 +189,7 @@ func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
 	ch := topic.Subscribe()
 
 	received := make([]any, 0)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		select {
 		case msg := <-ch:
 			received = append(received, msg)
@@ -214,11 +212,11 @@ func TestTopicWithLockFreeHistory_Concurrent(t *testing.T) {
 	}()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < 100; j++ {
+			for j := range 100 {
 				topic.Publish(id*100 + j)
 			}
 		}(i)
