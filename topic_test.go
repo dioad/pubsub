@@ -8,6 +8,7 @@ import (
 )
 
 func TestTopic_Publish(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	ch := topic.Subscribe()
@@ -18,6 +19,7 @@ func TestTopic_Publish(t *testing.T) {
 }
 
 func TestTopic_SubscribeFunc(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	ch := make(chan any)
@@ -31,6 +33,7 @@ func TestTopic_SubscribeFunc(t *testing.T) {
 }
 
 func TestTopic_SubscribeWithBuffer(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	ch := topic.SubscribeWithBuffer(1)
@@ -41,6 +44,7 @@ func TestTopic_SubscribeWithBuffer(t *testing.T) {
 }
 
 func TestTopic_Unsubscribe(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	ch := topic.Subscribe()
@@ -55,6 +59,7 @@ func TestTopic_Unsubscribe(t *testing.T) {
 }
 
 func TestTopicWithHistory_Publish(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithHistory(10))
 
 	ch := topic.Subscribe()
@@ -67,6 +72,7 @@ func TestTopicWithHistory_Publish(t *testing.T) {
 }
 
 func TestTopicWithHistory_Subscribe(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithHistory(10))
 
 	ch := topic.Subscribe()
@@ -79,6 +85,7 @@ func TestTopicWithHistory_Subscribe(t *testing.T) {
 }
 
 func TestTopicWithHistory_SubscribeFunc(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithHistory(10))
 
 	ch := make(chan any)
@@ -94,6 +101,7 @@ func TestTopicWithHistory_SubscribeFunc(t *testing.T) {
 }
 
 func TestTopicWithHistory_Unsubscribe(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithHistory(10))
 
 	ch := topic.Subscribe()
@@ -109,6 +117,7 @@ func TestTopicWithHistory_Unsubscribe(t *testing.T) {
 }
 
 func TestTopicWithHistory_SubscribeWithBuffer(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithHistory(2))
 	topic.Publish("msg1")
 	topic.Publish("msg2")

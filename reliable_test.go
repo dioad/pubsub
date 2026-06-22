@@ -9,6 +9,7 @@ import (
 )
 
 func TestReliableDelivery(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	topic := ps.Topic("reliable")
 
@@ -36,6 +37,7 @@ func TestReliableDelivery(t *testing.T) {
 }
 
 func TestReliableDeliveryTimeout(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	topic := ps.Topic("reliable-timeout")
 
@@ -51,6 +53,7 @@ func TestReliableDeliveryTimeout(t *testing.T) {
 }
 
 func TestAddFeederReliable(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.SubscribeUnbuffered("test")
 
@@ -78,6 +81,7 @@ func TestAddFeederReliable(t *testing.T) {
 }
 
 func TestTopicWithHistoryReliable(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub(WithHistorySize(5))
 	topic := ps.Topic("history-reliable")
 
@@ -106,6 +110,7 @@ func TestTopicWithHistoryReliable(t *testing.T) {
 }
 
 func TestSubscribeAllUnbuffered(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.SubscribeAllUnbuffered()
 
@@ -127,6 +132,7 @@ func TestSubscribeAllUnbuffered(t *testing.T) {
 }
 
 func TestAddFeedingFuncReliable_Nil(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ps.AddFeedingFuncReliable(context.Background(), nil)
 

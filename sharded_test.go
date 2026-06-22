@@ -10,6 +10,7 @@ import (
 )
 
 func TestRingBuffer_Basic(t *testing.T) {
+	t.Parallel()
 	rb := ringbuffer.New(5)
 
 	// Push some items
@@ -23,6 +24,7 @@ func TestRingBuffer_Basic(t *testing.T) {
 }
 
 func TestRingBuffer_Overflow(t *testing.T) {
+	t.Parallel()
 	rb := ringbuffer.New(3)
 
 	// Push more than capacity
@@ -39,6 +41,7 @@ func TestRingBuffer_Overflow(t *testing.T) {
 }
 
 func TestRingBuffer_Concurrent(t *testing.T) {
+	t.Parallel()
 	rb := ringbuffer.New(100)
 	var wg sync.WaitGroup
 
@@ -68,6 +71,7 @@ func TestRingBuffer_Concurrent(t *testing.T) {
 }
 
 func TestShardedPubSub_Basic(t *testing.T) {
+	t.Parallel()
 	ps := NewShardedPubSub()
 
 	ch := ps.Subscribe("test")
@@ -85,6 +89,7 @@ func TestShardedPubSub_Basic(t *testing.T) {
 }
 
 func TestShardedPubSub_WithHistory(t *testing.T) {
+	t.Parallel()
 	ps := NewShardedPubSub(WithHistorySize(10))
 
 	// Publish before subscribing
@@ -113,6 +118,7 @@ func TestShardedPubSub_WithHistory(t *testing.T) {
 }
 
 func TestShardedPubSub_WithLockFreeHistory(t *testing.T) {
+	t.Parallel()
 	ps := NewShardedPubSub(WithLockFreeHistorySize(10))
 
 	// Publish before subscribing
@@ -141,6 +147,7 @@ func TestShardedPubSub_WithLockFreeHistory(t *testing.T) {
 }
 
 func TestShardedPubSub_SubscribeAll(t *testing.T) {
+	t.Parallel()
 	ps := NewShardedPubSub()
 
 	allCh := ps.SubscribeAll()
@@ -168,6 +175,7 @@ func TestShardedPubSub_SubscribeAll(t *testing.T) {
 }
 
 func TestShardedPubSub_Topics(t *testing.T) {
+	t.Parallel()
 	ps := NewShardedPubSub()
 
 	ps.Publish("topic1", "msg")
@@ -181,6 +189,7 @@ func TestShardedPubSub_Topics(t *testing.T) {
 }
 
 func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithLockFreeHistory(10))
 
 	// Publish some messages
@@ -204,6 +213,7 @@ func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
 }
 
 func TestTopicWithLockFreeHistory_Concurrent(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic(WithLockFreeHistory(100))
 
 	ch := topic.Subscribe()

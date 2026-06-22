@@ -9,6 +9,7 @@ import (
 )
 
 func TestTopic_Close(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 	ch := topic.Subscribe()
 
@@ -23,6 +24,7 @@ func TestTopic_Close(t *testing.T) {
 }
 
 func TestPubSub_Shutdown(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch1 := ps.Subscribe("topic1")
 	ch2 := ps.Subscribe("topic2")
@@ -44,6 +46,7 @@ func TestPubSub_Shutdown(t *testing.T) {
 }
 
 func TestShardedPubSub_Shutdown(t *testing.T) {
+	t.Parallel()
 	ps := NewShardedPubSub()
 	ch1 := ps.Subscribe("topic1")
 	ch2 := ps.Subscribe("topic2")
@@ -65,6 +68,7 @@ func TestShardedPubSub_Shutdown(t *testing.T) {
 }
 
 func TestTopic_Shutdown_DoubleClose_NoPanic(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 	topic.Subscribe()
 
@@ -76,6 +80,7 @@ func TestTopic_Shutdown_DoubleClose_NoPanic(t *testing.T) {
 }
 
 func TestPubSub_Shutdown_DoubleClose_NoPanic(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ps.Subscribe("topic1")
 
@@ -87,6 +92,7 @@ func TestPubSub_Shutdown_DoubleClose_NoPanic(t *testing.T) {
 }
 
 func TestAddFeeder_ContextCancel(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.Subscribe("test")
 
