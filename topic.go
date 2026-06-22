@@ -109,27 +109,29 @@ type pubsubTopic struct {
 type sendFunc func(ch chan any, m any) bool
 
 // publishWithSendFunc publishes messages using the provided send function.
+// OnDrop is called after releasing the lock so that a slow observer cannot
+// deadlock by attempting to subscribe or unsubscribe inside its callback.
 func (t *pubsubTopic) publishWithSendFunc(msg []any, send sendFunc) (int, int) {
 	t.mu.RLock()
-	defer t.mu.RUnlock()
-
+	name := t.name
+	successCount := 0
+	var drops []any
 	for _, m := range msg {
 		t.observer.OnPublish(t.name, m)
-	}
-
-	successCount := 0
-	dropCount := 0
-	for _, m := range msg {
 		for _, ch := range t.subscriptions {
 			if send(ch, m) {
 				successCount++
 			} else {
-				t.observer.OnDrop(t.name, m)
-				dropCount++
+				drops = append(drops, m)
 			}
 		}
 	}
-	return successCount, dropCount
+	t.mu.RUnlock()
+
+	for _, m := range drops {
+		t.observer.OnDrop(name, m)
+	}
+	return successCount, len(drops)
 }
 
 // Publish publishes a message to the topic.
@@ -151,10 +153,12 @@ func (t *pubsubTopic) Publish(msg ...any) PublishResult {
 // Returns the number of subscribers that successfully received the message.
 func (t *pubsubTopic) PublishReliable(msg ...any) int {
 	deliveries, _ := t.publishWithSendFunc(msg, func(ch chan any, m any) bool {
+		timer := time.NewTimer(100 * time.Millisecond)
+		defer timer.Stop()
 		select {
 		case ch <- m:
 			return true
-		case <-time.After(100 * time.Millisecond):
+		case <-timer.C:
 			return false
 		}
 	})
@@ -178,6 +182,27 @@ func (t *pubsubTopic) subscribeWithBuffer(size int) chan any {
 	t.observer.OnSubscribe(t.name)
 
 	ch := make(chan any, size)
+	t.subscriptions = append(t.subscriptions, ch)
+	return ch
+}
+
+// subscribeWithHistory atomically creates a subscription channel, pre-fills it with
+// the provided history messages, and registers it — all under the same lock. This
+// prevents a race where a publish between subscribe and history-replay would deliver
+// the same message twice (once live, once from history).
+func (t *pubsubTopic) subscribeWithHistory(size int, history []any) chan any {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.observer.OnSubscribe(t.name)
+
+	ch := make(chan any, size)
+	for _, m := range history {
+		select {
+		case ch <- m:
+		default:
+		}
+	}
 	t.subscriptions = append(t.subscriptions, ch)
 	return ch
 }
@@ -223,16 +248,17 @@ func (t *pubsubTopic) Shutdown(ctx context.Context) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	remaining := t.subscriptions[:0]
 	for _, sub := range t.subscriptions {
 		select {
 		case <-ctx.Done():
-			return
+			remaining = append(remaining, sub)
 		default:
 			close(sub)
 			t.observer.OnUnsubscribe(t.name)
 		}
 	}
-	t.subscriptions = nil
+	t.subscriptions = remaining
 }
 
 // Close shuts down the topic and closes all subscription channels.
@@ -240,19 +266,14 @@ func (t *pubsubTopic) Close() {
 	t.Shutdown(context.Background())
 }
 
-// setName sets the name of the topic for observer callbacks.
-// This is an internal method used by PubSub to configure topic names.
-func (t *pubsubTopic) setName(name string) {
-	t.name = name
-}
-
-func newTopic(o Observer) *pubsubTopic {
+func newTopic(o Observer, name string) *pubsubTopic {
 	if o == nil {
 		o = NoopObserver{}
 	}
 	return &pubsubTopic{
 		subscriptions: make([]chan any, 0),
 		observer:      o,
+		name:          name,
 	}
 }
 
@@ -263,12 +284,20 @@ type topicConfig struct {
 	historySize  int
 	lockFreeSize int
 	observer     Observer
+	name         string
 }
 
 // WithTopicObserver sets the observer for the Topic instance.
 func WithTopicObserver(o Observer) TopicOpt {
 	return func(cfg *topicConfig) {
 		cfg.observer = o
+	}
+}
+
+// WithTopicName sets the name used in observer callbacks for the Topic instance.
+func WithTopicName(name string) TopicOpt {
+	return func(cfg *topicConfig) {
+		cfg.name = name
 	}
 }
 
@@ -279,8 +308,8 @@ func WithHistory(size int) TopicOpt {
 	}
 }
 
-// WithLockFreeHistoryOpt enables lock-free message history for the Topic.
-func WithLockFreeHistoryOpt(size int) TopicOpt {
+// WithLockFreeHistory enables lock-free message history for the Topic.
+func WithLockFreeHistory(size int) TopicOpt {
 	return func(cfg *topicConfig) {
 		cfg.lockFreeSize = size
 	}
@@ -303,12 +332,12 @@ func NewTopic(opts ...TopicOpt) Topic {
 	}
 
 	if cfg.lockFreeSize > 0 {
-		return newTopicWithLockFreeHistory(cfg.observer, cfg.lockFreeSize)
+		return newTopicWithLockFreeHistory(cfg.observer, cfg.lockFreeSize, cfg.name)
 	}
 
 	if cfg.historySize > 0 {
-		return newTopicWithHistory(cfg.observer, cfg.historySize)
+		return newTopicWithHistory(cfg.observer, cfg.historySize, cfg.name)
 	}
 
-	return newTopic(cfg.observer)
+	return newTopic(cfg.observer, cfg.name)
 }

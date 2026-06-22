@@ -93,17 +93,17 @@ type topicWithHistory struct {
 }
 
 // newTopicWithHistory creates a new Topic instance with mutex-protected history.
-func newTopicWithHistory(o Observer, size int) Topic {
+func newTopicWithHistory(o Observer, size int, name string) Topic {
 	return &topicWithHistory{
-		topic:   newTopic(o),
+		topic:   newTopic(o, name),
 		history: newSliceHistory(size),
 	}
 }
 
 // newTopicWithLockFreeHistory creates a new Topic with lock-free history.
-func newTopicWithLockFreeHistory(o Observer, size int) Topic {
+func newTopicWithLockFreeHistory(o Observer, size int, name string) Topic {
 	return &topicWithHistory{
-		topic:   newTopic(o),
+		topic:   newTopic(o, name),
 		history: newRingBufferHistory(size),
 	}
 }
@@ -128,6 +128,8 @@ func (t *topicWithHistory) PublishReliable(msg ...any) int {
 }
 
 // Subscribe returns a channel that will receive messages.
+// The channel buffer is sized to history capacity plus a small burst allowance
+// so that history replay and concurrent live messages do not block each other.
 func (t *topicWithHistory) Subscribe() <-chan any {
 	return t.subscribeWithBuffer(t.history.Cap() * 2)
 }
@@ -138,19 +140,10 @@ func (t *topicWithHistory) SubscribeWithBuffer(size int) <-chan any {
 }
 
 // subscribeWithBuffer creates a subscription and sends historical messages.
+// History is pre-filled inside the topic lock to avoid duplicate delivery of messages
+// published between subscription and history replay.
 func (t *topicWithHistory) subscribeWithBuffer(size int) chan any {
-	ch := t.topic.subscribeWithBuffer(size)
-
-	// Send historical messages (non-blocking)
-	for _, msg := range t.history.GetAll() {
-		select {
-		case ch <- msg:
-		default:
-			// Channel full, skip historical message
-		}
-	}
-
-	return ch
+	return t.topic.subscribeWithHistory(size, t.history.GetAll())
 }
 
 // SubscribeFunc subscribes and calls the function for each message.
@@ -176,10 +169,4 @@ func (t *topicWithHistory) Close() {
 // Shutdown closes all subscriptions with context for timeout support.
 func (t *topicWithHistory) Shutdown(ctx context.Context) {
 	t.topic.Shutdown(ctx)
-}
-
-// setName sets the name of the topic for observer callbacks.
-// This is an internal method used by PubSub to configure topic names.
-func (t *topicWithHistory) setName(name string) {
-	t.topic.setName(name)
 }

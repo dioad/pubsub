@@ -44,6 +44,7 @@ func (o *mockObserver) OnUnsubscribe(topic string) {
 }
 
 func TestObserver_PubSub(t *testing.T) {
+	t.Parallel()
 	obs := newMockObserver()
 	ps := NewPubSub(WithObserver(obs))
 
@@ -57,12 +58,12 @@ func TestObserver_PubSub(t *testing.T) {
 
 	assert.Equal(t, 1, obs.subscriptions[topic])
 	assert.Equal(t, 1, obs.publishes[topic])
-	// Also "*" topic for Publish
-	assert.Equal(t, 1, obs.publishes["*"])
+	assert.Equal(t, 1, obs.publishes[WildcardTopic])
 	assert.Equal(t, 1, obs.unsubscriptions[topic])
 }
 
 func TestObserver_ShardedPubSub(t *testing.T) {
+	t.Parallel()
 	obs := newMockObserver()
 	ps := NewShardedPubSub(WithObserver(obs))
 
@@ -80,6 +81,7 @@ func TestObserver_ShardedPubSub(t *testing.T) {
 }
 
 func TestObserver_Topic(t *testing.T) {
+	t.Parallel()
 	obs := newMockObserver()
 	topic := NewTopic(WithTopicObserver(obs))
 

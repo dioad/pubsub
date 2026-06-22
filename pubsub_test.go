@@ -9,6 +9,7 @@ import (
 )
 
 func TestPub_SubscribeAll_WithNoHistory(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 
 	ps.Publish("topic1", "msg1")
@@ -25,6 +26,7 @@ func TestPub_SubscribeAll_WithNoHistory(t *testing.T) {
 }
 
 func TestPubSub_DeleteTopic(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.Subscribe("test")
 	ps.Publish("test", "msg1")
@@ -45,6 +47,7 @@ func TestPubSub_DeleteTopic(t *testing.T) {
 }
 
 func TestPubSub_Drops(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	_ = ps.SubscribeWithBuffer("test", 0) // Unbuffered
 
@@ -55,6 +58,7 @@ func TestPubSub_Drops(t *testing.T) {
 }
 
 func TestPubSub_SubscribeAll_WithHistory(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub(WithHistorySize(10))
 
 	ps.Publish("topic1", "msg1")
@@ -87,6 +91,7 @@ func readAllFromChannel[T any](ch <-chan T, timePeriod time.Duration) []T {
 }
 
 func TestPubSub(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub(WithHistorySize(10))
 
 	ch1 := ps.Subscribe("topic1")
@@ -109,6 +114,7 @@ func TestPubSub(t *testing.T) {
 }
 
 func TestPubSub_SubscribeFunc(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub(WithHistorySize(10))
 
 	ch1 := make(chan any)
@@ -132,6 +138,7 @@ func TestPubSub_SubscribeFunc(t *testing.T) {
 }
 
 func TestPubSub_SubscribeAllFunc(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := make(chan any, 10)
 
@@ -151,18 +158,20 @@ func TestPubSub_SubscribeAllFunc(t *testing.T) {
 }
 
 func TestPubSub_Topics(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ps.Publish("topic1", "msg1")
 	ps.Publish("topic2", "msg2")
 	ps.Subscribe("topic3")
 
 	topics := ps.Topics()
-	expected := []string{"topic1", "topic2", "topic3", "*"}
+	expected := []string{"topic1", "topic2", "topic3", WildcardTopic}
 
 	assert.ElementsMatch(t, expected, topics)
 }
 
 func TestPubSub_Unsubscribe(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.Subscribe("topic1")
 
@@ -185,6 +194,7 @@ func TestPubSub_Unsubscribe(t *testing.T) {
 }
 
 func TestPubSub_UnsubscribeAll(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.SubscribeAll()
 
@@ -212,6 +222,7 @@ func (m *mockFeeder) Feed() <-chan *EventTuple {
 }
 
 func TestPubSub_AddFeeder(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.Subscribe("topic1")
 
@@ -231,6 +242,7 @@ func TestPubSub_AddFeeder(t *testing.T) {
 }
 
 func TestPubSub_AddFeedingFunc(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.Subscribe("topic1")
 
@@ -262,6 +274,7 @@ func TestPubSub_AddFeedingFunc(t *testing.T) {
 }
 
 func TestPubSub_AddFeedingFunc_Multiple(t *testing.T) {
+	t.Parallel()
 	ps := NewPubSub()
 	ch := ps.Subscribe("topic1")
 

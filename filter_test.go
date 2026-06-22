@@ -21,6 +21,7 @@ type testStructTwo struct {
 }
 
 func TestSubscribe(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	msgOne := testStructOne{Field: "value1"}
@@ -36,6 +37,7 @@ func TestSubscribe(t *testing.T) {
 }
 
 func TestFilterChan(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	msgOne := testStructOne{Field: "value1"}
@@ -57,6 +59,7 @@ func TestFilterChan(t *testing.T) {
 }
 
 func TestSubscribeWithFilter(t *testing.T) {
+	t.Parallel()
 	topic := NewTopic()
 
 	msgOne := testStructOne{Field: "value1"}
@@ -73,6 +76,7 @@ func TestSubscribeWithFilter(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
+	t.Parallel()
 	myMerge := Merge[testStructOne]
 
 	msgOne := testStructOne{Field: "value1"}
@@ -103,6 +107,7 @@ func TestMerge(t *testing.T) {
 }
 
 func TestMerge_SkipMismatchedType(t *testing.T) {
+	t.Parallel()
 	ch1 := make(chan any, 2)
 	merged := Merge[string](ch1)
 
@@ -114,6 +119,7 @@ func TestMerge_SkipMismatchedType(t *testing.T) {
 }
 
 func TestCastChan(t *testing.T) {
+	t.Parallel()
 	ch := make(chan any, 2)
 	castCh := CastChan[testStructOne](ch)
 
@@ -129,6 +135,7 @@ func TestCastChan(t *testing.T) {
 
 // TestApplyChan_BasicFunctionality tests basic transformation functionality
 func TestApplyChan_BasicFunctionality(t *testing.T) {
+	t.Parallel()
 	input := make(chan int, 3)
 
 	// Transform int to string
@@ -151,6 +158,7 @@ func TestApplyChan_BasicFunctionality(t *testing.T) {
 
 // TestApplyChan_ErrorHandling tests that errors are handled properly
 func TestApplyChan_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	input := make(chan int, 5)
 
 	// Transform function that errors on even numbers
@@ -178,6 +186,7 @@ func TestApplyChan_ErrorHandling(t *testing.T) {
 
 // TestApplyChan_EmptyChannel tests behavior with empty input channel
 func TestApplyChan_EmptyChannel(t *testing.T) {
+	t.Parallel()
 	input := make(chan int)
 
 	output := ApplyChan(input, func(i int) (string, error) {
@@ -195,6 +204,7 @@ func TestApplyChan_EmptyChannel(t *testing.T) {
 
 // TestApplyChan_ChannelCapacity tests that output channel has same capacity as input
 func TestApplyChan_ChannelCapacity(t *testing.T) {
+	t.Parallel()
 	input := make(chan int, 5)
 
 	output := ApplyChan(input, func(i int) (string, error) {
@@ -209,6 +219,7 @@ func TestApplyChan_ChannelCapacity(t *testing.T) {
 
 // TestApplyChan_UnbufferedChannel tests with unbuffered channels
 func TestApplyChan_UnbufferedChannel(t *testing.T) {
+	t.Parallel()
 	input := make(chan int)
 
 	output := ApplyChan(input, func(i int) (string, error) {
@@ -230,6 +241,7 @@ func TestApplyChan_UnbufferedChannel(t *testing.T) {
 
 // TestApplyChan_RaceConditions tests for race conditions with concurrent access
 func TestApplyChan_RaceConditions(t *testing.T) {
+	t.Parallel()
 	const numGoroutines = 10
 	const messagesPerGoroutine = 100
 
@@ -275,6 +287,7 @@ func TestApplyChan_RaceConditions(t *testing.T) {
 
 // TestApplyChan_FullOutputChannel tests behavior when output channel buffer is full
 func TestApplyChan_FullOutputChannel(t *testing.T) {
+	t.Parallel()
 	input := make(chan int, 10)
 
 	// Use small buffer for output to test full channel behavior
@@ -306,6 +319,7 @@ func TestApplyChan_FullOutputChannel(t *testing.T) {
 
 // TestApplyChan_TypeTransformation tests transformation between different types
 func TestApplyChan_TypeTransformation(t *testing.T) {
+	t.Parallel()
 	input := make(chan testStructOne, 3)
 
 	// Transform struct to string
@@ -327,6 +341,7 @@ func TestApplyChan_TypeTransformation(t *testing.T) {
 }
 
 func TestApplyChanWithMetrics_DroppedEvents(t *testing.T) {
+	t.Parallel()
 	// Create a small buffered input channel
 	input := make(chan int, 10)
 
@@ -357,6 +372,7 @@ func TestApplyChanWithMetrics_DroppedEvents(t *testing.T) {
 }
 
 func TestApplyChanWithMetrics_FilteredEvents(t *testing.T) {
+	t.Parallel()
 	input := make(chan int, 10)
 
 	metrics := &DropMetrics{}
@@ -387,6 +403,7 @@ func TestApplyChanWithMetrics_FilteredEvents(t *testing.T) {
 }
 
 func TestDropMetrics_Concurrent(t *testing.T) {
+	t.Parallel()
 	metrics := &DropMetrics{}
 
 	var wg sync.WaitGroup

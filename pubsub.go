@@ -9,6 +9,10 @@ import (
 	"github.com/dioad/pubsub/internal/topicstore"
 )
 
+// WildcardTopic is the special topic name that receives a copy of every message
+// published to any topic. Subscribing to it is equivalent to calling SubscribeAll.
+const WildcardTopic = "*"
+
 // Observer is an interface for components that want to observe events in the PubSub system.
 type Observer interface {
 	// OnPublish is called when a message is published to a topic.
@@ -43,7 +47,9 @@ func WithObserver(o Observer) Opt {
 // It sets the maximum number of historical messages to store per topic.
 func WithHistorySize(size int) Opt {
 	return func(ps *pubSub) {
-		ps.topicFunc = func() Topic { return NewTopic(WithHistory(size), WithTopicObserver(ps.observer)) }
+		ps.topicFunc = func(name string) Topic {
+			return NewTopic(WithHistory(size), WithTopicObserver(ps.observer), WithTopicName(name))
+		}
 	}
 }
 
@@ -61,8 +67,11 @@ type Feeder interface {
 	Feed() <-chan *EventTuple
 }
 
-// FeedingFunc is a function type that acts as a Feeder.
+// FeedingFunc is a function type that implements Feeder.
 type FeedingFunc func() <-chan *EventTuple
+
+// Feed implements Feeder so FeedingFunc values can be used wherever a Feeder is expected.
+func (f FeedingFunc) Feed() <-chan *EventTuple { return f() }
 
 // PubSub is a thread-safe publish/subscribe message broker interface that enables
 // topic-based message distribution. It supports both direct channel subscriptions
@@ -193,7 +202,7 @@ type PubSub interface {
 // It is safe for concurrent use
 type pubSub struct {
 	store     topicstore.Store
-	topicFunc func() Topic
+	topicFunc func(name string) Topic
 	observer  Observer
 }
 
@@ -204,7 +213,9 @@ func initPubSub(ps *pubSub, opt ...Opt) {
 	}
 
 	if ps.topicFunc == nil {
-		ps.topicFunc = func() Topic { return NewTopic(WithTopicObserver(ps.observer)) }
+		ps.topicFunc = func(name string) Topic {
+			return NewTopic(WithTopicObserver(ps.observer), WithTopicName(name))
+		}
 	}
 }
 
@@ -255,14 +266,14 @@ func (ps *pubSub) Subscribe(topic string) <-chan any {
 // for every message published to any topic.
 // If history is enabled, the callback will be invoked for historical messages from all topics.
 func (ps *pubSub) SubscribeAllFunc(f func(msg any)) {
-	ps.SubscribeFunc("*", f)
+	ps.SubscribeFunc(WildcardTopic, f)
 }
 
 // SubscribeAll creates a subscription to all topics by subscribing to
 // the special "*" topic and returns a channel for receiving messages.
 // If history is enabled, new subscribers will receive historical messages from all topics.
 func (ps *pubSub) SubscribeAll() <-chan any {
-	return ps.Topic("*").Subscribe()
+	return ps.Topic(WildcardTopic).Subscribe()
 }
 
 // Topics returns a list of all currently registered topics.
@@ -275,30 +286,12 @@ func (ps *pubSub) Topics() []string {
 	return topicNames
 }
 
-// topicWithName is an internal interface for topics that can have their name set.
-// This interface is not part of the public API and is used internally by PubSub
-// to set topic names for observer callbacks.
-type topicWithName interface {
-	setName(name string)
-}
-
-// setTopicName sets the name on a topic for observer callbacks.
-// This uses an interface-based approach to avoid fragile type assertions
-// and ensure all topic implementations properly support naming.
-func setTopicName(t Topic, name string) {
-	if tn, ok := t.(topicWithName); ok {
-		tn.setName(name)
-	}
-}
-
 // Topic returns a Topic instance for the given topic name.
 // If the topic doesn't exist, it creates a new one.
 func (ps *pubSub) Topic(topicName string) Topic {
 	t := ps.store.GetOrCreate(topicName, func() topicstore.Topic {
-		return ps.topicFunc()
-	}, func(t topicstore.Topic) {
-		setTopicName(t.(Topic), topicName)
-	})
+		return ps.topicFunc(topicName)
+	}, nil)
 	return t.(Topic)
 }
 
@@ -310,7 +303,7 @@ func (ps *pubSub) publishToTopic(topic string, msg ...any) PublishResult {
 // and subscribers to the "*" topic will receive these messages.
 func (ps *pubSub) Publish(topic string, msg ...any) PublishResult {
 	res1 := ps.publishToTopic(topic, msg...)
-	res2 := ps.publishToTopic("*", msg...)
+	res2 := ps.publishToTopic(WildcardTopic, msg...)
 	return PublishResult{
 		Deliveries: res1.Deliveries + res2.Deliveries,
 		Drops:      res1.Drops + res2.Drops,
@@ -324,13 +317,13 @@ func (ps *pubSub) publishReliableToTopic(topic string, msg ...any) int {
 // PublishReliable publishes a message to a topic using reliable delivery.
 func (ps *pubSub) PublishReliable(topic string, msg ...any) int {
 	total := ps.publishReliableToTopic(topic, msg...)
-	total += ps.publishReliableToTopic("*", msg...)
+	total += ps.publishReliableToTopic(WildcardTopic, msg...)
 	return total
 }
 
 // UnsubscribeAll unsubscribes a channel from the "*" special topic
 func (ps *pubSub) UnsubscribeAll(sub <-chan any) {
-	ps.Unsubscribe("*", sub)
+	ps.Unsubscribe(WildcardTopic, sub)
 }
 
 // Unsubscribe removes a subscription channel from a specific topic.
@@ -356,11 +349,11 @@ func (ps *pubSub) SubscribeUnbuffered(topic string) <-chan any {
 
 // SubscribeAllUnbuffered returns an unbuffered channel for all topics.
 func (ps *pubSub) SubscribeAllUnbuffered() <-chan any {
-	return ps.SubscribeUnbuffered("*")
+	return ps.SubscribeUnbuffered(WildcardTopic)
 }
 
 // runFeedingLoop runs a feeding loop that reads from a FeedingFunc and publishes messages.
-func runFeedingLoop(ctx context.Context, f FeedingFunc, publish func(topic string, msg ...any) PublishResult, publishReliable func(topic string, msg ...any) int) {
+func runFeedingLoop(ctx context.Context, f FeedingFunc, publishFn func(topic string, msg ...any)) {
 	if f == nil {
 		return
 	}
@@ -378,11 +371,7 @@ func runFeedingLoop(ctx context.Context, f FeedingFunc, publish func(topic strin
 					return
 				}
 				if eventTuple != nil {
-					if publish != nil {
-						publish(eventTuple.Topic, eventTuple.Event)
-					} else if publishReliable != nil {
-						publishReliable(eventTuple.Topic, eventTuple.Event)
-					}
+					publishFn(eventTuple.Topic, eventTuple.Event)
 				}
 			}
 		}
@@ -401,7 +390,7 @@ func (ps *pubSub) AddFeeder(ctx context.Context, f Feeder) {
 // AddFeedingFunc registers a FeedingFunc that will provide messages to the PubSub system.
 // The context can be used to cancel the feeding process.
 func (ps *pubSub) AddFeedingFunc(ctx context.Context, f FeedingFunc) {
-	runFeedingLoop(ctx, f, ps.Publish, nil)
+	runFeedingLoop(ctx, f, func(topic string, msg ...any) { ps.Publish(topic, msg...) })
 }
 
 // AddFeederReliable registers a Feeder that will provide messages using reliable delivery.
@@ -413,7 +402,7 @@ func (ps *pubSub) AddFeederReliable(ctx context.Context, f Feeder) {
 // AddFeedingFuncReliable registers a FeedingFunc that will provide messages using reliable delivery.
 // The context can be used to cancel the feeding process.
 func (ps *pubSub) AddFeedingFuncReliable(ctx context.Context, f FeedingFunc) {
-	runFeedingLoop(ctx, f, nil, ps.PublishReliable)
+	runFeedingLoop(ctx, f, func(topic string, msg ...any) { ps.PublishReliable(topic, msg...) })
 }
 
 // Shutdown gracefully shuts down the PubSub instance, closing all topics and subscriptions.

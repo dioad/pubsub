@@ -164,7 +164,7 @@ func BenchmarkShardedPubSubWithHistoryPublish(b *testing.B) {
 
 // BenchmarkShardedPubSubWithLockFreeHistory measures sharded PubSub with lock-free history
 func BenchmarkShardedPubSubWithLockFreeHistory(b *testing.B) {
-	ps := NewShardedPubSub(WithLockFreeHistory(100))
+	ps := NewShardedPubSub(WithLockFreeHistorySize(100))
 
 	// Subscribe to ensure messages are being processed
 	_ = ps.Subscribe("test-topic")
@@ -177,7 +177,7 @@ func BenchmarkShardedPubSubWithLockFreeHistory(b *testing.B) {
 
 // BenchmarkTopicWithLockFreeHistoryPublish measures lock-free history topic
 func BenchmarkTopicWithLockFreeHistoryPublish(b *testing.B) {
-	topic := NewTopic(WithLockFreeHistoryOpt(100))
+	topic := NewTopic(WithLockFreeHistory(100))
 
 	// Subscribe to ensure messages are being processed
 	_ = topic.Subscribe()
@@ -190,7 +190,7 @@ func BenchmarkTopicWithLockFreeHistoryPublish(b *testing.B) {
 
 // BenchmarkShardedPubSubParallel measures parallel publish performance
 func BenchmarkShardedPubSubParallel(b *testing.B) {
-	ps := NewShardedPubSub(WithLockFreeHistory(100))
+	ps := NewShardedPubSub(WithLockFreeHistorySize(100))
 
 	// Subscribe to multiple topics
 	_ = ps.Subscribe("topic-1")
