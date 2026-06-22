@@ -27,6 +27,9 @@ type Store interface {
 
 	// Shutdown closes all topics with context for timeout support.
 	Shutdown(ctx context.Context)
+
+	// Clear removes all topics from the store without closing them.
+	Clear()
 }
 
 // SimpleStore is a basic topic store using a single mutex-protected map.
