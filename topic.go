@@ -266,19 +266,14 @@ func (t *pubsubTopic) Close() {
 	t.Shutdown(context.Background())
 }
 
-// setName sets the name of the topic for observer callbacks.
-// This is an internal method used by PubSub to configure topic names.
-func (t *pubsubTopic) setName(name string) {
-	t.name = name
-}
-
-func newTopic(o Observer) *pubsubTopic {
+func newTopic(o Observer, name string) *pubsubTopic {
 	if o == nil {
 		o = NoopObserver{}
 	}
 	return &pubsubTopic{
 		subscriptions: make([]chan any, 0),
 		observer:      o,
+		name:          name,
 	}
 }
 
@@ -289,12 +284,20 @@ type topicConfig struct {
 	historySize  int
 	lockFreeSize int
 	observer     Observer
+	name         string
 }
 
 // WithTopicObserver sets the observer for the Topic instance.
 func WithTopicObserver(o Observer) TopicOpt {
 	return func(cfg *topicConfig) {
 		cfg.observer = o
+	}
+}
+
+// WithTopicName sets the name used in observer callbacks for the Topic instance.
+func WithTopicName(name string) TopicOpt {
+	return func(cfg *topicConfig) {
+		cfg.name = name
 	}
 }
 
@@ -329,12 +332,12 @@ func NewTopic(opts ...TopicOpt) Topic {
 	}
 
 	if cfg.lockFreeSize > 0 {
-		return newTopicWithLockFreeHistory(cfg.observer, cfg.lockFreeSize)
+		return newTopicWithLockFreeHistory(cfg.observer, cfg.lockFreeSize, cfg.name)
 	}
 
 	if cfg.historySize > 0 {
-		return newTopicWithHistory(cfg.observer, cfg.historySize)
+		return newTopicWithHistory(cfg.observer, cfg.historySize, cfg.name)
 	}
 
-	return newTopic(cfg.observer)
+	return newTopic(cfg.observer, cfg.name)
 }

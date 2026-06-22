@@ -47,7 +47,9 @@ func WithObserver(o Observer) Opt {
 // It sets the maximum number of historical messages to store per topic.
 func WithHistorySize(size int) Opt {
 	return func(ps *pubSub) {
-		ps.topicFunc = func() Topic { return NewTopic(WithHistory(size), WithTopicObserver(ps.observer)) }
+		ps.topicFunc = func(name string) Topic {
+			return NewTopic(WithHistory(size), WithTopicObserver(ps.observer), WithTopicName(name))
+		}
 	}
 }
 
@@ -197,7 +199,7 @@ type PubSub interface {
 // It is safe for concurrent use
 type pubSub struct {
 	store     topicstore.Store
-	topicFunc func() Topic
+	topicFunc func(name string) Topic
 	observer  Observer
 }
 
@@ -208,7 +210,9 @@ func initPubSub(ps *pubSub, opt ...Opt) {
 	}
 
 	if ps.topicFunc == nil {
-		ps.topicFunc = func() Topic { return NewTopic(WithTopicObserver(ps.observer)) }
+		ps.topicFunc = func(name string) Topic {
+			return NewTopic(WithTopicObserver(ps.observer), WithTopicName(name))
+		}
 	}
 }
 
@@ -279,30 +283,12 @@ func (ps *pubSub) Topics() []string {
 	return topicNames
 }
 
-// topicWithName is an internal interface for topics that can have their name set.
-// This interface is not part of the public API and is used internally by PubSub
-// to set topic names for observer callbacks.
-type topicWithName interface {
-	setName(name string)
-}
-
-// setTopicName sets the name on a topic for observer callbacks.
-// This uses an interface-based approach to avoid fragile type assertions
-// and ensure all topic implementations properly support naming.
-func setTopicName(t Topic, name string) {
-	if tn, ok := t.(topicWithName); ok {
-		tn.setName(name)
-	}
-}
-
 // Topic returns a Topic instance for the given topic name.
 // If the topic doesn't exist, it creates a new one.
 func (ps *pubSub) Topic(topicName string) Topic {
 	t := ps.store.GetOrCreate(topicName, func() topicstore.Topic {
-		return ps.topicFunc()
-	}, func(t topicstore.Topic) {
-		setTopicName(t.(Topic), topicName)
-	})
+		return ps.topicFunc(topicName)
+	}, nil)
 	return t.(Topic)
 }
 

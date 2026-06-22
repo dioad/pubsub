@@ -93,17 +93,17 @@ type topicWithHistory struct {
 }
 
 // newTopicWithHistory creates a new Topic instance with mutex-protected history.
-func newTopicWithHistory(o Observer, size int) Topic {
+func newTopicWithHistory(o Observer, size int, name string) Topic {
 	return &topicWithHistory{
-		topic:   newTopic(o),
+		topic:   newTopic(o, name),
 		history: newSliceHistory(size),
 	}
 }
 
 // newTopicWithLockFreeHistory creates a new Topic with lock-free history.
-func newTopicWithLockFreeHistory(o Observer, size int) Topic {
+func newTopicWithLockFreeHistory(o Observer, size int, name string) Topic {
 	return &topicWithHistory{
-		topic:   newTopic(o),
+		topic:   newTopic(o, name),
 		history: newRingBufferHistory(size),
 	}
 }
@@ -167,10 +167,4 @@ func (t *topicWithHistory) Close() {
 // Shutdown closes all subscriptions with context for timeout support.
 func (t *topicWithHistory) Shutdown(ctx context.Context) {
 	t.topic.Shutdown(ctx)
-}
-
-// setName sets the name of the topic for observer callbacks.
-// This is an internal method used by PubSub to configure topic names.
-func (t *topicWithHistory) setName(name string) {
-	t.topic.setName(name)
 }
