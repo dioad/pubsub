@@ -67,8 +67,11 @@ type Feeder interface {
 	Feed() <-chan *EventTuple
 }
 
-// FeedingFunc is a function type that acts as a Feeder.
+// FeedingFunc is a function type that implements Feeder.
 type FeedingFunc func() <-chan *EventTuple
+
+// Feed implements Feeder so FeedingFunc values can be used wherever a Feeder is expected.
+func (f FeedingFunc) Feed() <-chan *EventTuple { return f() }
 
 // PubSub is a thread-safe publish/subscribe message broker interface that enables
 // topic-based message distribution. It supports both direct channel subscriptions
