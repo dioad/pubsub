@@ -350,7 +350,7 @@ func (ps *pubSub) SubscribeAllUnbuffered() <-chan any {
 }
 
 // runFeedingLoop runs a feeding loop that reads from a FeedingFunc and publishes messages.
-func runFeedingLoop(ctx context.Context, f FeedingFunc, publish func(topic string, msg ...any) PublishResult, publishReliable func(topic string, msg ...any) int) {
+func runFeedingLoop(ctx context.Context, f FeedingFunc, publishFn func(topic string, msg ...any)) {
 	if f == nil {
 		return
 	}
@@ -368,11 +368,7 @@ func runFeedingLoop(ctx context.Context, f FeedingFunc, publish func(topic strin
 					return
 				}
 				if eventTuple != nil {
-					if publish != nil {
-						publish(eventTuple.Topic, eventTuple.Event)
-					} else if publishReliable != nil {
-						publishReliable(eventTuple.Topic, eventTuple.Event)
-					}
+					publishFn(eventTuple.Topic, eventTuple.Event)
 				}
 			}
 		}
@@ -391,7 +387,7 @@ func (ps *pubSub) AddFeeder(ctx context.Context, f Feeder) {
 // AddFeedingFunc registers a FeedingFunc that will provide messages to the PubSub system.
 // The context can be used to cancel the feeding process.
 func (ps *pubSub) AddFeedingFunc(ctx context.Context, f FeedingFunc) {
-	runFeedingLoop(ctx, f, ps.Publish, nil)
+	runFeedingLoop(ctx, f, func(topic string, msg ...any) { ps.Publish(topic, msg...) })
 }
 
 // AddFeederReliable registers a Feeder that will provide messages using reliable delivery.
@@ -403,7 +399,7 @@ func (ps *pubSub) AddFeederReliable(ctx context.Context, f Feeder) {
 // AddFeedingFuncReliable registers a FeedingFunc that will provide messages using reliable delivery.
 // The context can be used to cancel the feeding process.
 func (ps *pubSub) AddFeedingFuncReliable(ctx context.Context, f FeedingFunc) {
-	runFeedingLoop(ctx, f, nil, ps.PublishReliable)
+	runFeedingLoop(ctx, f, func(topic string, msg ...any) { ps.PublishReliable(topic, msg...) })
 }
 
 // Shutdown gracefully shuts down the PubSub instance, closing all topics and subscriptions.
