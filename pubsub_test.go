@@ -157,7 +157,7 @@ func TestPubSub_Topics(t *testing.T) {
 	ps.Subscribe("topic3")
 
 	topics := ps.Topics()
-	expected := []string{"topic1", "topic2", "topic3", "*"}
+	expected := []string{"topic1", "topic2", "topic3", WildcardTopic}
 
 	assert.ElementsMatch(t, expected, topics)
 }

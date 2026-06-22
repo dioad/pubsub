@@ -9,6 +9,10 @@ import (
 	"github.com/dioad/pubsub/internal/topicstore"
 )
 
+// WildcardTopic is the special topic name that receives a copy of every message
+// published to any topic. Subscribing to it is equivalent to calling SubscribeAll.
+const WildcardTopic = "*"
+
 // Observer is an interface for components that want to observe events in the PubSub system.
 type Observer interface {
 	// OnPublish is called when a message is published to a topic.
@@ -255,14 +259,14 @@ func (ps *pubSub) Subscribe(topic string) <-chan any {
 // for every message published to any topic.
 // If history is enabled, the callback will be invoked for historical messages from all topics.
 func (ps *pubSub) SubscribeAllFunc(f func(msg any)) {
-	ps.SubscribeFunc("*", f)
+	ps.SubscribeFunc(WildcardTopic, f)
 }
 
 // SubscribeAll creates a subscription to all topics by subscribing to
 // the special "*" topic and returns a channel for receiving messages.
 // If history is enabled, new subscribers will receive historical messages from all topics.
 func (ps *pubSub) SubscribeAll() <-chan any {
-	return ps.Topic("*").Subscribe()
+	return ps.Topic(WildcardTopic).Subscribe()
 }
 
 // Topics returns a list of all currently registered topics.
@@ -310,7 +314,7 @@ func (ps *pubSub) publishToTopic(topic string, msg ...any) PublishResult {
 // and subscribers to the "*" topic will receive these messages.
 func (ps *pubSub) Publish(topic string, msg ...any) PublishResult {
 	res1 := ps.publishToTopic(topic, msg...)
-	res2 := ps.publishToTopic("*", msg...)
+	res2 := ps.publishToTopic(WildcardTopic, msg...)
 	return PublishResult{
 		Deliveries: res1.Deliveries + res2.Deliveries,
 		Drops:      res1.Drops + res2.Drops,
@@ -324,13 +328,13 @@ func (ps *pubSub) publishReliableToTopic(topic string, msg ...any) int {
 // PublishReliable publishes a message to a topic using reliable delivery.
 func (ps *pubSub) PublishReliable(topic string, msg ...any) int {
 	total := ps.publishReliableToTopic(topic, msg...)
-	total += ps.publishReliableToTopic("*", msg...)
+	total += ps.publishReliableToTopic(WildcardTopic, msg...)
 	return total
 }
 
 // UnsubscribeAll unsubscribes a channel from the "*" special topic
 func (ps *pubSub) UnsubscribeAll(sub <-chan any) {
-	ps.Unsubscribe("*", sub)
+	ps.Unsubscribe(WildcardTopic, sub)
 }
 
 // Unsubscribe removes a subscription channel from a specific topic.
@@ -356,7 +360,7 @@ func (ps *pubSub) SubscribeUnbuffered(topic string) <-chan any {
 
 // SubscribeAllUnbuffered returns an unbuffered channel for all topics.
 func (ps *pubSub) SubscribeAllUnbuffered() <-chan any {
-	return ps.SubscribeUnbuffered("*")
+	return ps.SubscribeUnbuffered(WildcardTopic)
 }
 
 // runFeedingLoop runs a feeding loop that reads from a FeedingFunc and publishes messages.

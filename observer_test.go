@@ -57,8 +57,7 @@ func TestObserver_PubSub(t *testing.T) {
 
 	assert.Equal(t, 1, obs.subscriptions[topic])
 	assert.Equal(t, 1, obs.publishes[topic])
-	// Also "*" topic for Publish
-	assert.Equal(t, 1, obs.publishes["*"])
+	assert.Equal(t, 1, obs.publishes[WildcardTopic])
 	assert.Equal(t, 1, obs.unsubscriptions[topic])
 }
 
