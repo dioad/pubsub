@@ -64,6 +64,28 @@ func TestShardedPubSub_Shutdown(t *testing.T) {
 	assert.Empty(t, ps.Topics())
 }
 
+func TestTopic_Shutdown_DoubleClose_NoPanic(t *testing.T) {
+	topic := NewTopic()
+	topic.Subscribe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already cancelled — Shutdown will see ctx.Done() immediately
+
+	topic.Shutdown(ctx) // partial shutdown (context already done)
+	topic.Close()       // must not panic with "close of closed channel"
+}
+
+func TestPubSub_Shutdown_DoubleClose_NoPanic(t *testing.T) {
+	ps := NewPubSub()
+	ps.Subscribe("topic1")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	ps.Shutdown(ctx)
+	ps.Close() // must not panic
+}
+
 func TestAddFeeder_ContextCancel(t *testing.T) {
 	ps := NewPubSub()
 	ch := ps.Subscribe("test")

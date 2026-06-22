@@ -223,16 +223,17 @@ func (t *pubsubTopic) Shutdown(ctx context.Context) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	remaining := t.subscriptions[:0]
 	for _, sub := range t.subscriptions {
 		select {
 		case <-ctx.Done():
-			return
+			remaining = append(remaining, sub)
 		default:
 			close(sub)
 			t.observer.OnUnsubscribe(t.name)
 		}
 	}
-	t.subscriptions = nil
+	t.subscriptions = remaining
 }
 
 // Close shuts down the topic and closes all subscription channels.

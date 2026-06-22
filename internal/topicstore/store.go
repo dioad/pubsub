@@ -94,15 +94,16 @@ func (s *SimpleStore) Shutdown(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, topic := range s.topics {
+	remaining := make(map[string]Topic)
+	for name, topic := range s.topics {
 		select {
 		case <-ctx.Done():
-			return
+			remaining[name] = topic
 		default:
 			topic.Close()
 		}
 	}
-	s.topics = make(map[string]Topic)
+	s.topics = remaining
 }
 
 const numShards = 16
@@ -197,22 +198,24 @@ func (s *ShardedStore) DeleteTopic(name string) {
 func (s *ShardedStore) Shutdown(ctx context.Context) {
 	for i := range numShards {
 		s.shards[i].mu.Lock()
+
+		var unclosed []struct{ key, val any }
 		s.shards[i].topics.Range(func(key, value any) bool {
 			select {
 			case <-ctx.Done():
-				return false
+				unclosed = append(unclosed, struct{ key, val any }{key, value})
+				return true
 			default:
 				value.(Topic).Close()
+				s.shards[i].topics.Delete(key)
 				return true
 			}
 		})
-		s.shards[i].topics = sync.Map{}
+
 		s.shards[i].mu.Unlock()
 
-		select {
-		case <-ctx.Done():
+		if len(unclosed) > 0 {
 			return
-		default:
 		}
 	}
 }
