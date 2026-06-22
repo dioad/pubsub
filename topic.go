@@ -308,8 +308,8 @@ func WithHistory(size int) TopicOpt {
 	}
 }
 
-// WithLockFreeHistoryOpt enables lock-free message history for the Topic.
-func WithLockFreeHistoryOpt(size int) TopicOpt {
+// WithLockFreeHistory enables lock-free message history for the Topic.
+func WithLockFreeHistory(size int) TopicOpt {
 	return func(cfg *topicConfig) {
 		cfg.lockFreeSize = size
 	}

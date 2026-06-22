@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/dioad/pubsub/pkg/ringbuffer"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/dioad/pubsub/pkg/ringbuffer"
 )
 
 func TestRingBuffer_Basic(t *testing.T) {
@@ -112,7 +113,7 @@ func TestShardedPubSub_WithHistory(t *testing.T) {
 }
 
 func TestShardedPubSub_WithLockFreeHistory(t *testing.T) {
-	ps := NewShardedPubSub(WithLockFreeHistory(10))
+	ps := NewShardedPubSub(WithLockFreeHistorySize(10))
 
 	// Publish before subscribing
 	ps.Publish("test", "msg1")
@@ -180,7 +181,7 @@ func TestShardedPubSub_Topics(t *testing.T) {
 }
 
 func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
-	topic := NewTopic(WithLockFreeHistoryOpt(10))
+	topic := NewTopic(WithLockFreeHistory(10))
 
 	// Publish some messages
 	topic.Publish("a", "b", "c")
@@ -203,7 +204,7 @@ func TestTopicWithLockFreeHistory_Basic(t *testing.T) {
 }
 
 func TestTopicWithLockFreeHistory_Concurrent(t *testing.T) {
-	topic := NewTopic(WithLockFreeHistoryOpt(100))
+	topic := NewTopic(WithLockFreeHistory(100))
 
 	ch := topic.Subscribe()
 	go func() {
