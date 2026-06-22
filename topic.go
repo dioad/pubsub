@@ -109,27 +109,29 @@ type pubsubTopic struct {
 type sendFunc func(ch chan any, m any) bool
 
 // publishWithSendFunc publishes messages using the provided send function.
+// OnDrop is called after releasing the lock so that a slow observer cannot
+// deadlock by attempting to subscribe or unsubscribe inside its callback.
 func (t *pubsubTopic) publishWithSendFunc(msg []any, send sendFunc) (int, int) {
 	t.mu.RLock()
-	defer t.mu.RUnlock()
-
+	name := t.name
+	successCount := 0
+	var drops []any
 	for _, m := range msg {
 		t.observer.OnPublish(t.name, m)
-	}
-
-	successCount := 0
-	dropCount := 0
-	for _, m := range msg {
 		for _, ch := range t.subscriptions {
 			if send(ch, m) {
 				successCount++
 			} else {
-				t.observer.OnDrop(t.name, m)
-				dropCount++
+				drops = append(drops, m)
 			}
 		}
 	}
-	return successCount, dropCount
+	t.mu.RUnlock()
+
+	for _, m := range drops {
+		t.observer.OnDrop(name, m)
+	}
+	return successCount, len(drops)
 }
 
 // Publish publishes a message to the topic.
