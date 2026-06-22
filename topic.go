@@ -182,6 +182,27 @@ func (t *pubsubTopic) subscribeWithBuffer(size int) chan any {
 	return ch
 }
 
+// subscribeWithHistory atomically creates a subscription channel, pre-fills it with
+// the provided history messages, and registers it — all under the same lock. This
+// prevents a race where a publish between subscribe and history-replay would deliver
+// the same message twice (once live, once from history).
+func (t *pubsubTopic) subscribeWithHistory(size int, history []any) chan any {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.observer.OnSubscribe(t.name)
+
+	ch := make(chan any, size)
+	for _, m := range history {
+		select {
+		case ch <- m:
+		default:
+		}
+	}
+	t.subscriptions = append(t.subscriptions, ch)
+	return ch
+}
+
 // SubscribeFunc subscribes to the topic and calls the provided function for each message.
 // Returns the subscription channel that can be used to unsubscribe later.
 // If the topic has history enabled, the function will be called for historical messages.

@@ -138,19 +138,10 @@ func (t *topicWithHistory) SubscribeWithBuffer(size int) <-chan any {
 }
 
 // subscribeWithBuffer creates a subscription and sends historical messages.
+// History is pre-filled inside the topic lock to avoid duplicate delivery of messages
+// published between subscription and history replay.
 func (t *topicWithHistory) subscribeWithBuffer(size int) chan any {
-	ch := t.topic.subscribeWithBuffer(size)
-
-	// Send historical messages (non-blocking)
-	for _, msg := range t.history.GetAll() {
-		select {
-		case ch <- msg:
-		default:
-			// Channel full, skip historical message
-		}
-	}
-
-	return ch
+	return t.topic.subscribeWithHistory(size, t.history.GetAll())
 }
 
 // SubscribeFunc subscribes and calls the function for each message.
