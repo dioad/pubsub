@@ -7,7 +7,7 @@ import (
 	"github.com/dioad/pubsub"
 )
 
-// Define a message type for demonstration
+// Message Define a message type for demonstration
 type Message struct {
 	Source  string
 	Content string

@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dioad/pubsub"
-	"github.com/dioad/pubsub/otelpubsub"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
@@ -17,6 +15,9 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+
+	"github.com/dioad/pubsub"
+	"github.com/dioad/pubsub/otelpubsub"
 )
 
 func initConn() func() {
