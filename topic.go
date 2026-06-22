@@ -151,10 +151,12 @@ func (t *pubsubTopic) Publish(msg ...any) PublishResult {
 // Returns the number of subscribers that successfully received the message.
 func (t *pubsubTopic) PublishReliable(msg ...any) int {
 	deliveries, _ := t.publishWithSendFunc(msg, func(ch chan any, m any) bool {
+		timer := time.NewTimer(100 * time.Millisecond)
+		defer timer.Stop()
 		select {
 		case ch <- m:
 			return true
-		case <-time.After(100 * time.Millisecond):
+		case <-timer.C:
 			return false
 		}
 	})
