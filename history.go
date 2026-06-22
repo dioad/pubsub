@@ -128,6 +128,8 @@ func (t *topicWithHistory) PublishReliable(msg ...any) int {
 }
 
 // Subscribe returns a channel that will receive messages.
+// The channel buffer is sized to history capacity plus a small burst allowance
+// so that history replay and concurrent live messages do not block each other.
 func (t *topicWithHistory) Subscribe() <-chan any {
 	return t.subscribeWithBuffer(t.history.Cap() * 2)
 }
