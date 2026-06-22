@@ -47,6 +47,8 @@ func NewSimpleStore() *SimpleStore {
 }
 
 // GetOrCreate returns an existing topic or creates a new one using the factory.
+// This always acquires an exclusive lock; for read-heavy workloads with many
+// concurrent topic lookups, prefer ShardedStore which uses double-checked locking.
 func (s *SimpleStore) GetOrCreate(name string, factory func() Topic, onCreated func(Topic)) Topic {
 	s.mu.Lock()
 	defer s.mu.Unlock()
