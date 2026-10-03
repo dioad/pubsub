@@ -1,3 +1,4 @@
+// Command merging demonstrates merging multiple pubsub channels into one.
 package main
 
 import (
@@ -7,11 +8,17 @@ import (
 	"github.com/dioad/pubsub"
 )
 
-// Message Define a message type for demonstration
+// Message Define a message type for demonstration.
 type Message struct {
 	Source  string
 	Content string
 }
+
+const (
+	sourceTopicA   = "Topic A"
+	sourceTopicB   = "Topic B"
+	specialMessage = "Special message"
+)
 
 func main() {
 	fmt.Println("PubSub Channel Merging Example")
@@ -40,11 +47,11 @@ func main() {
 
 	// Publish messages to different topics
 	fmt.Println("Publishing messages to different topics...")
-	topicA.Publish(Message{Source: "Topic A", Content: "Message from A-1"})
-	topicB.Publish(Message{Source: "Topic B", Content: "Message from B-1"})
+	topicA.Publish(Message{Source: sourceTopicA, Content: "Message from A-1"})
+	topicB.Publish(Message{Source: sourceTopicB, Content: "Message from B-1"})
 	topicC.Publish(Message{Source: "Topic C", Content: "Message from C-1"})
-	topicA.Publish(Message{Source: "Topic A", Content: "Message from A-2"})
-	topicB.Publish(Message{Source: "Topic B", Content: "Message from B-2"})
+	topicA.Publish(Message{Source: sourceTopicA, Content: "Message from A-2"})
+	topicB.Publish(Message{Source: sourceTopicB, Content: "Message from B-2"})
 
 	// Wait for messages to be processed
 	time.Sleep(100 * time.Millisecond)
@@ -83,12 +90,12 @@ func main() {
 
 	// Filter messages from Topic A
 	filteredChA := pubsub.FilterChan(chA, func(msg Message) bool {
-		return msg.Source == "Topic A" && msg.Content == "Special message"
+		return msg.Source == sourceTopicA && msg.Content == specialMessage
 	})
 
 	// Filter messages from Topic B
 	filteredChB := pubsub.FilterChan(chB, func(msg Message) bool {
-		return msg.Source == "Topic B" && msg.Content == "Special message"
+		return msg.Source == sourceTopicB && msg.Content == specialMessage
 	})
 
 	// Create a new channel to manually merge the filtered channels
@@ -116,10 +123,10 @@ func main() {
 
 	// Publish special messages
 	fmt.Println("Publishing special messages...")
-	topicA.Publish(Message{Source: "Topic A", Content: "Regular message"})
-	topicA.Publish(Message{Source: "Topic A", Content: "Special message"})
-	topicB.Publish(Message{Source: "Topic B", Content: "Regular message"})
-	topicB.Publish(Message{Source: "Topic B", Content: "Special message"})
+	topicA.Publish(Message{Source: sourceTopicA, Content: "Regular message"})
+	topicA.Publish(Message{Source: sourceTopicA, Content: specialMessage})
+	topicB.Publish(Message{Source: sourceTopicB, Content: "Regular message"})
+	topicB.Publish(Message{Source: sourceTopicB, Content: specialMessage})
 
 	// Wait for messages to be processed
 	time.Sleep(100 * time.Millisecond)

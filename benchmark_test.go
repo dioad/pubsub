@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// BenchmarkTopicPublish measures the performance of publishing messages to a topic
+// BenchmarkTopicPublish measures the performance of publishing messages to a topic.
 func BenchmarkTopicPublish(b *testing.B) {
 	topic := NewTopic()
 
@@ -12,23 +12,23 @@ func BenchmarkTopicPublish(b *testing.B) {
 	_ = topic.Subscribe()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		topic.Publish(i)
 	}
 }
 
-// BenchmarkTopicSubscribe measures the performance of subscribing to a topic
+// BenchmarkTopicSubscribe measures the performance of subscribing to a topic.
 func BenchmarkTopicSubscribe(b *testing.B) {
 	topic := NewTopic()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		ch := topic.Subscribe()
 		topic.Unsubscribe(ch)
 	}
 }
 
-// BenchmarkTopicWithHistoryPublish measures the performance of publishing to a topic with history
+// BenchmarkTopicWithHistoryPublish measures the performance of publishing to a topic with history.
 func BenchmarkTopicWithHistoryPublish(b *testing.B) {
 	topic := NewTopic(WithHistory(100))
 
@@ -36,12 +36,12 @@ func BenchmarkTopicWithHistoryPublish(b *testing.B) {
 	_ = topic.Subscribe()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		topic.Publish(i)
 	}
 }
 
-// BenchmarkPubSubPublish measures the performance of publishing messages through PubSub
+// BenchmarkPubSubPublish measures the performance of publishing messages through PubSub.
 func BenchmarkPubSubPublish(b *testing.B) {
 	ps := NewPubSub()
 
@@ -49,12 +49,12 @@ func BenchmarkPubSubPublish(b *testing.B) {
 	_ = ps.Subscribe("test-topic")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ps.Publish("test-topic", i)
 	}
 }
 
-// BenchmarkPubSubWithHistoryPublish measures the performance of publishing through PubSub with history
+// BenchmarkPubSubWithHistoryPublish measures the performance of publishing through PubSub with history.
 func BenchmarkPubSubWithHistoryPublish(b *testing.B) {
 	ps := NewPubSub(WithHistorySize(100))
 
@@ -62,18 +62,18 @@ func BenchmarkPubSubWithHistoryPublish(b *testing.B) {
 	_ = ps.Subscribe("test-topic")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ps.Publish("test-topic", i)
 	}
 }
 
-// BenchmarkFilterChan measures the performance of filtering messages
+// BenchmarkFilterChan measures the performance of filtering messages.
 func BenchmarkFilterChan(b *testing.B) {
 	topic := NewTopic()
 	ch := topic.Subscribe()
 
 	// Create a filter that accepts all integers
-	filteredCh := FilterChan(ch, func(i int) bool { return true })
+	filteredCh := FilterChan(ch, func(_ int) bool { return true })
 
 	// Start a goroutine to consume messages from the filtered channel
 	go func() {
@@ -83,12 +83,12 @@ func BenchmarkFilterChan(b *testing.B) {
 	}()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		topic.Publish(i)
 	}
 }
 
-// BenchmarkSubscribeWithFilter measures the performance of subscribing with a filter
+// BenchmarkSubscribeWithFilter measures the performance of subscribing with a filter.
 func BenchmarkSubscribeWithFilter(b *testing.B) {
 	topic := NewTopic()
 
@@ -103,12 +103,12 @@ func BenchmarkSubscribeWithFilter(b *testing.B) {
 	}()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		topic.Publish(i)
 	}
 }
 
-// BenchmarkMerge measures the performance of merging channels
+// BenchmarkMerge measures the performance of merging channels.
 func BenchmarkMerge(b *testing.B) {
 	topic1 := NewTopic()
 	topic2 := NewTopic()
@@ -127,7 +127,7 @@ func BenchmarkMerge(b *testing.B) {
 	}()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		if i%2 == 0 {
 			topic1.Publish(i)
 		} else {
@@ -136,7 +136,7 @@ func BenchmarkMerge(b *testing.B) {
 	}
 }
 
-// BenchmarkShardedPubSubPublish measures the performance of the sharded PubSub
+// BenchmarkShardedPubSubPublish measures the performance of the sharded PubSub.
 func BenchmarkShardedPubSubPublish(b *testing.B) {
 	ps := NewShardedPubSub()
 
@@ -144,12 +144,12 @@ func BenchmarkShardedPubSubPublish(b *testing.B) {
 	_ = ps.Subscribe("test-topic")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ps.Publish("test-topic", i)
 	}
 }
 
-// BenchmarkShardedPubSubWithHistoryPublish measures sharded PubSub with history
+// BenchmarkShardedPubSubWithHistoryPublish measures sharded PubSub with history.
 func BenchmarkShardedPubSubWithHistoryPublish(b *testing.B) {
 	ps := NewShardedPubSub(WithHistorySize(100))
 
@@ -157,12 +157,12 @@ func BenchmarkShardedPubSubWithHistoryPublish(b *testing.B) {
 	_ = ps.Subscribe("test-topic")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ps.Publish("test-topic", i)
 	}
 }
 
-// BenchmarkShardedPubSubWithLockFreeHistory measures sharded PubSub with lock-free history
+// BenchmarkShardedPubSubWithLockFreeHistory measures sharded PubSub with lock-free history.
 func BenchmarkShardedPubSubWithLockFreeHistory(b *testing.B) {
 	ps := NewShardedPubSub(WithLockFreeHistorySize(100))
 
@@ -170,12 +170,12 @@ func BenchmarkShardedPubSubWithLockFreeHistory(b *testing.B) {
 	_ = ps.Subscribe("test-topic")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ps.Publish("test-topic", i)
 	}
 }
 
-// BenchmarkTopicWithLockFreeHistoryPublish measures lock-free history topic
+// BenchmarkTopicWithLockFreeHistoryPublish measures lock-free history topic.
 func BenchmarkTopicWithLockFreeHistoryPublish(b *testing.B) {
 	topic := NewTopic(WithLockFreeHistory(100))
 
@@ -183,12 +183,12 @@ func BenchmarkTopicWithLockFreeHistoryPublish(b *testing.B) {
 	_ = topic.Subscribe()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		topic.Publish(i)
 	}
 }
 
-// BenchmarkShardedPubSubParallel measures parallel publish performance
+// BenchmarkShardedPubSubParallel measures parallel publish performance.
 func BenchmarkShardedPubSubParallel(b *testing.B) {
 	ps := NewShardedPubSub(WithLockFreeHistorySize(100))
 
@@ -209,7 +209,7 @@ func BenchmarkShardedPubSubParallel(b *testing.B) {
 	})
 }
 
-// BenchmarkOriginalPubSubParallel measures parallel publish for comparison
+// BenchmarkOriginalPubSubParallel measures parallel publish for comparison.
 func BenchmarkOriginalPubSubParallel(b *testing.B) {
 	ps := NewPubSub(WithHistorySize(100))
 

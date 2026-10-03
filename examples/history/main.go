@@ -1,3 +1,4 @@
+// Command history demonstrates pubsub's message history feature.
 package main
 
 import (

@@ -133,7 +133,7 @@ func NewShardedStore() *ShardedStore {
 // getShard returns the shard for a given topic name using FNV-1a hash.
 func (s *ShardedStore) getShard(name string) *shard {
 	h := fnv.New32a()
-	h.Write([]byte(name))
+	_, _ = h.Write([]byte(name)) // hash.Hash.Write never returns an error
 	return &s.shards[h.Sum32()%numShards]
 }
 
@@ -143,7 +143,7 @@ func (s *ShardedStore) GetOrCreate(name string, factory func() Topic, onCreated 
 
 	// Fast path: lock-free read from sync.Map
 	if t, ok := sh.topics.Load(name); ok {
-		return t.(Topic)
+		return t.(Topic) //nolint:forcetypeassert // this shard's sync.Map only ever stores values written by Store below
 	}
 
 	// Slow path: lock to create topic atomically
@@ -152,7 +152,7 @@ func (s *ShardedStore) GetOrCreate(name string, factory func() Topic, onCreated 
 
 	// Double-check after acquiring lock
 	if t, ok := sh.topics.Load(name); ok {
-		return t.(Topic)
+		return t.(Topic) //nolint:forcetypeassert // this shard's sync.Map only ever stores values written by Store below
 	}
 
 	t := factory()
@@ -168,7 +168,15 @@ func (s *ShardedStore) Range(fn func(name string, topic Topic) bool) {
 	for i := range numShards {
 		continueIteration := true
 		s.shards[i].topics.Range(func(key, value any) bool {
-			if !fn(key.(string), value.(Topic)) {
+			name, ok := key.(string)
+			if !ok {
+				return true
+			}
+			topic, ok := value.(Topic)
+			if !ok {
+				return true
+			}
+			if !fn(name, topic) {
 				continueIteration = false
 				return false
 			}
@@ -195,7 +203,9 @@ func (s *ShardedStore) DeleteTopic(name string) {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
 	if t, ok := sh.topics.LoadAndDelete(name); ok {
-		t.(Topic).Close()
+		if topic, ok := t.(Topic); ok {
+			topic.Close()
+		}
 	}
 }
 
@@ -211,7 +221,9 @@ func (s *ShardedStore) Shutdown(ctx context.Context) {
 				unclosed = append(unclosed, struct{ key, val any }{key, value})
 				return true
 			default:
-				value.(Topic).Close()
+				if topic, ok := value.(Topic); ok {
+					topic.Close()
+				}
 				s.shards[i].topics.Delete(key)
 				return true
 			}

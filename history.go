@@ -108,8 +108,8 @@ func newTopicWithLockFreeHistory(o Observer, size int, name string) Topic {
 	}
 }
 
-// publishAndRecord publishes messages and records them in history.
-func (t *topicWithHistory) publishAndRecord(publishFn func(...any) any, msg ...any) any {
+// publishAndRecord publishes messages via publishFn and records them in history.
+func publishAndRecord[T any](t *topicWithHistory, publishFn func(...any) T, msg ...any) T {
 	res := publishFn(msg...)
 	for _, m := range msg {
 		t.history.Push(m)
@@ -119,12 +119,12 @@ func (t *topicWithHistory) publishAndRecord(publishFn func(...any) any, msg ...a
 
 // Publish publishes a message to the topic and stores it in history.
 func (t *topicWithHistory) Publish(msg ...any) PublishResult {
-	return t.publishAndRecord(func(m ...any) any { return t.topic.Publish(m...) }, msg...).(PublishResult)
+	return publishAndRecord(t, t.topic.Publish, msg...)
 }
 
 // PublishReliable publishes a message using blocking sends with timeout.
 func (t *topicWithHistory) PublishReliable(msg ...any) int {
-	return t.publishAndRecord(func(m ...any) any { return t.topic.PublishReliable(m...) }, msg...).(int)
+	return publishAndRecord(t, t.topic.PublishReliable, msg...)
 }
 
 // Subscribe returns a channel that will receive messages.

@@ -1,3 +1,4 @@
+// Command feeder demonstrates feeding external events into pubsub.
 package main
 
 import (

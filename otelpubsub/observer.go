@@ -36,6 +36,29 @@ type observerConfig struct {
 	prometheusRegistry prometheus.Registerer
 }
 
+// topicLabel is the Prometheus label name used by every counter below to
+// record which pubsub topic an event belongs to.
+const topicLabel = "topic"
+
+// registerOrReuseCounter registers counter with registry. If a counter with
+// the same name is already registered (e.g. when multiple observers share
+// the default global registry), it returns the existing collector instead
+// so metrics from all observers accumulate on one series.
+func registerOrReuseCounter(registry prometheus.Registerer, counter *prometheus.CounterVec) *prometheus.CounterVec {
+	err := registry.Register(counter)
+	if err == nil {
+		return counter
+	}
+
+	var are prometheus.AlreadyRegisteredError
+	if errors.As(err, &are) {
+		if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
+			return existing
+		}
+	}
+	return counter
+}
+
 // WithServiceName sets the service name for the Observer.
 func WithServiceName(name string) ObserverOpt {
 	return func(cfg *observerConfig) {
@@ -86,48 +109,24 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	publishCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "pubsub_messages_published_total",
 		Help: "Total number of messages published.",
-	}, []string{"topic"})
+	}, []string{topicLabel})
 
 	subscribeCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "pubsub_subscriptions_total",
 		Help: "Total number of active subscriptions.",
-	}, []string{"topic"})
+	}, []string{topicLabel})
 
 	unsubscribeCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "pubsub_unsubscriptions_total",
 		Help: "Total number of unsubscriptions.",
-	}, []string{"topic"})
+	}, []string{topicLabel})
 
-	// Register the counters with the provided registry
-	// If metrics are already registered (e.g., when creating multiple observers with the default registry),
-	// use the existing collectors instead
-	if err := cfg.prometheusRegistry.Register(publishCounter); err != nil {
-		var are prometheus.AlreadyRegisteredError
-		if errors.As(err, &are) {
-			// Safe type assertion: we created the original counter with the same type and labels
-			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
-				publishCounter = existing
-			}
-		}
-	}
-	if err := cfg.prometheusRegistry.Register(subscribeCounter); err != nil {
-		var are prometheus.AlreadyRegisteredError
-		if errors.As(err, &are) {
-			// Safe type assertion: we created the original counter with the same type and labels
-			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
-				subscribeCounter = existing
-			}
-		}
-	}
-	if err := cfg.prometheusRegistry.Register(unsubscribeCounter); err != nil {
-		var are prometheus.AlreadyRegisteredError
-		if errors.As(err, &are) {
-			// Safe type assertion: we created the original counter with the same type and labels
-			if existing, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
-				unsubscribeCounter = existing
-			}
-		}
-	}
+	// Register the counters with the provided registry. If metrics are already
+	// registered (e.g., when creating multiple observers with the default
+	// registry), use the existing collectors instead.
+	publishCounter = registerOrReuseCounter(cfg.prometheusRegistry, publishCounter)
+	subscribeCounter = registerOrReuseCounter(cfg.prometheusRegistry, subscribeCounter)
+	unsubscribeCounter = registerOrReuseCounter(cfg.prometheusRegistry, unsubscribeCounter)
 
 	return &otelObserver{
 		tracer: tracer,
@@ -143,18 +142,18 @@ func NewObserver(opts ...ObserverOpt) pubsub.Observer {
 	}
 }
 
-func (o *otelObserver) OnPublish(topic string, msg any) {
+func (o *otelObserver) OnPublish(topic string, _ any) {
 	// Prometheus
 	o.publishCounter.WithLabelValues(topic).Inc()
 
 	// OpenTelemetry Metrics
 	ctx := context.Background()
-	o.msgPublished.Add(ctx, 1, metric.WithAttributes(attribute.String("topic", topic)))
+	o.msgPublished.Add(ctx, 1, metric.WithAttributes(attribute.String(topicLabel, topic)))
 }
 
-func (o *otelObserver) OnDrop(topic string, msg any) {
+func (o *otelObserver) OnDrop(topic string, _ any) {
 	// OpenTelemetry Metrics
-	o.msgDropped.Add(context.Background(), 1, metric.WithAttributes(attribute.String("topic", topic)))
+	o.msgDropped.Add(context.Background(), 1, metric.WithAttributes(attribute.String(topicLabel, topic)))
 }
 
 func (o *otelObserver) OnSubscribe(topic string) {
@@ -162,7 +161,7 @@ func (o *otelObserver) OnSubscribe(topic string) {
 	o.subscribeCounter.WithLabelValues(topic).Inc()
 
 	// OpenTelemetry Metrics
-	o.subsActive.Add(context.Background(), 1, metric.WithAttributes(attribute.String("topic", topic)))
+	o.subsActive.Add(context.Background(), 1, metric.WithAttributes(attribute.String(topicLabel, topic)))
 }
 
 func (o *otelObserver) OnUnsubscribe(topic string) {
@@ -170,5 +169,5 @@ func (o *otelObserver) OnUnsubscribe(topic string) {
 	o.unsubscribeCounter.WithLabelValues(topic).Inc()
 
 	// OpenTelemetry Metrics
-	o.subsActive.Add(context.Background(), -1, metric.WithAttributes(attribute.String("topic", topic)))
+	o.subsActive.Add(context.Background(), -1, metric.WithAttributes(attribute.String(topicLabel, topic)))
 }

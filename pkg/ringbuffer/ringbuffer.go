@@ -11,7 +11,7 @@ import (
 // without mutex contention.
 type RingBuffer struct {
 	buffer   []atomic.Value
-	size     int
+	size     uint64
 	writePos atomic.Uint64
 	count    atomic.Uint64
 }
@@ -23,7 +23,7 @@ func New(size int) *RingBuffer {
 	}
 	rb := &RingBuffer{
 		buffer: make([]atomic.Value, size),
-		size:   size,
+		size:   uint64(size),
 	}
 	return rb
 }
@@ -33,7 +33,7 @@ func New(size int) *RingBuffer {
 func (rb *RingBuffer) Push(msg any) {
 	// Get the next write position atomically
 	pos := rb.writePos.Add(1) - 1
-	idx := int(pos % uint64(rb.size))
+	idx := int(pos % rb.size) // #nosec G115 -- result is always < rb.size, which originated from a validated int
 
 	// Store the message
 	rb.buffer[idx].Store(msg)
@@ -41,7 +41,7 @@ func (rb *RingBuffer) Push(msg any) {
 	// Update count (capped at size)
 	for {
 		current := rb.count.Load()
-		newCount := min(current+1, uint64(rb.size))
+		newCount := min(current+1, rb.size)
 		if rb.count.CompareAndSwap(current, newCount) {
 			break
 		}
@@ -61,15 +61,15 @@ func (rb *RingBuffer) GetAll() []any {
 
 	// Calculate start position
 	var startPos uint64
-	if count < uint64(rb.size) {
+	if count < rb.size {
 		startPos = 0
 	} else {
-		startPos = writePos - uint64(rb.size)
+		startPos = writePos - rb.size
 	}
 
 	// Read messages in order
 	for i := range count {
-		idx := int((startPos + i) % uint64(rb.size))
+		idx := int((startPos + i) % rb.size) // #nosec G115 -- result is always < rb.size, which originated from a validated int
 		if val := rb.buffer[idx].Load(); val != nil {
 			result = append(result, val)
 		}
@@ -81,13 +81,13 @@ func (rb *RingBuffer) GetAll() []any {
 // Len returns the current number of messages in the buffer.
 func (rb *RingBuffer) Len() int {
 	count := rb.count.Load()
-	if count > uint64(rb.size) {
-		return rb.size
+	if count > rb.size {
+		return int(rb.size) // #nosec G115 -- rb.size originated from a validated int
 	}
-	return int(count)
+	return int(count) // #nosec G115 -- count is capped at rb.size, which originated from an int
 }
 
 // Cap returns the capacity of the ring buffer.
 func (rb *RingBuffer) Cap() int {
-	return rb.size
+	return int(rb.size) // #nosec G115 -- rb.size originated from a validated int
 }

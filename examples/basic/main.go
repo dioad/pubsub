@@ -1,3 +1,4 @@
+// Command basic demonstrates basic pubsub topic usage.
 package main
 
 import (

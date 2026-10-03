@@ -24,7 +24,7 @@ func TestNewObserver(t *testing.T) {
 	})
 }
 
-func TestObserverImplementation(t *testing.T) {
+func TestObserverImplementation(_ *testing.T) {
 	var _ pubsub.Observer = (*otelObserver)(nil)
 }
 

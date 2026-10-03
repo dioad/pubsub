@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockTopic struct {
@@ -23,7 +24,7 @@ func TestSimpleStore(t *testing.T) {
 	created := false
 	topic := s.GetOrCreate("test", func() Topic {
 		return &mockTopic{}
-	}, func(t Topic) {
+	}, func(_ Topic) {
 		created = true
 	})
 
@@ -35,7 +36,7 @@ func TestSimpleStore(t *testing.T) {
 	created = false
 	topic2 := s.GetOrCreate("test", func() Topic {
 		return &mockTopic{}
-	}, func(t Topic) {
+	}, func(_ Topic) {
 		created = true
 	})
 
@@ -44,7 +45,7 @@ func TestSimpleStore(t *testing.T) {
 
 	// Range
 	count := 0
-	s.Range(func(name string, topic Topic) bool {
+	s.Range(func(_ string, _ Topic) bool {
 		count++
 		return true
 	})
@@ -52,13 +53,15 @@ func TestSimpleStore(t *testing.T) {
 
 	// Shutdown
 	s.Shutdown(context.Background())
-	assert.True(t, topic.(*mockTopic).closed, "expected topic to be closed")
+	mt, ok := topic.(*mockTopic)
+	require.True(t, ok, "expected topic to be a *mockTopic")
+	assert.True(t, mt.closed, "expected topic to be closed")
 
 	// Clear
 	s.GetOrCreate("test2", func() Topic { return &mockTopic{} }, nil)
 	s.Clear()
 	count = 0
-	s.Range(func(name string, topic Topic) bool {
+	s.Range(func(_ string, _ Topic) bool {
 		count++
 		return true
 	})
@@ -83,7 +86,7 @@ func TestShardedStore(t *testing.T) {
 
 	// Range
 	count := 0
-	s.Range(func(name string, topic Topic) bool {
+	s.Range(func(_ string, _ Topic) bool {
 		count++
 		if count == 50 {
 			return false // Test early exit
@@ -93,7 +96,7 @@ func TestShardedStore(t *testing.T) {
 	assert.Equal(t, 50, count, "expected 50 topics after early exit, got %d", count)
 
 	count = 0
-	s.Range(func(name string, topic Topic) bool {
+	s.Range(func(_ string, _ Topic) bool {
 		count++
 		return true
 	})
@@ -102,7 +105,9 @@ func TestShardedStore(t *testing.T) {
 	// Shutdown
 	s.Shutdown(context.Background())
 	s.Range(func(name string, topic Topic) bool {
-		assert.Truef(t, topic.(*mockTopic).closed, "topic %s not closed", name)
+		mt, ok := topic.(*mockTopic)
+		require.True(t, ok, "expected topic to be a *mockTopic")
+		assert.Truef(t, mt.closed, "topic %s not closed", name)
 		return true
 	})
 
@@ -110,7 +115,7 @@ func TestShardedStore(t *testing.T) {
 	s.GetOrCreate("test", func() Topic { return &mockTopic{} }, nil)
 	s.Clear()
 	count = 0
-	s.Range(func(name string, topic Topic) bool {
+	s.Range(func(_ string, _ Topic) bool {
 		count++
 		return true
 	})
@@ -123,14 +128,14 @@ func TestSimpleStore_RangeExit(t *testing.T) {
 	s.GetOrCreate("t2", func() Topic { return &mockTopic{} }, nil)
 
 	count := 0
-	s.Range(func(name string, topic Topic) bool {
+	s.Range(func(_ string, _ Topic) bool {
 		count++
 		return false
 	})
 	assert.Equal(t, 1, count, "expected 1 topic after early exit, got %d", count)
 }
 
-func TestStore_ShutdownTimeout(t *testing.T) {
+func TestStore_ShutdownTimeout(_ *testing.T) {
 	s := NewSimpleStore()
 	s.GetOrCreate("test", func() Topic { return &mockTopic{} }, nil)
 

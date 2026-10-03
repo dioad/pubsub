@@ -198,7 +198,7 @@ func Merge[B any](channels ...<-chan any) <-chan B {
 		if cap(ch) > 0 {
 			capacity += cap(ch)
 		} else {
-			capacity += 1 // Unbuffered channels count as 1 for capacity
+			capacity++ // Unbuffered channels count as 1 for capacity
 		}
 	}
 
@@ -213,7 +213,7 @@ func Merge[B any](channels ...<-chan any) <-chan B {
 				cases = append(cases[:chosen], cases[chosen+1:]...)
 				continue
 			}
-			if val, ok := recv.Interface().(B); ok {
+			if val, ok := reflect.TypeAssert[B](recv); ok {
 				select {
 				case out <- val:
 					// Message sent successfully

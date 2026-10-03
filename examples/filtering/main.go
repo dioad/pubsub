@@ -1,3 +1,4 @@
+// Command filtering demonstrates filtering pubsub messages by type.
 package main
 
 import (
@@ -7,7 +8,7 @@ import (
 	"github.com/dioad/pubsub"
 )
 
-// TextMessage Define some message types for demonstration
+// TextMessage Define some message types for demonstration.
 type TextMessage struct {
 	Content string
 }

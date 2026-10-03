@@ -133,7 +133,7 @@ func TestCastChan(t *testing.T) {
 	assert.Equal(t, "value1", messages[0].Field)
 }
 
-// TestApplyChan_BasicFunctionality tests basic transformation functionality
+// TestApplyChan_BasicFunctionality tests basic transformation functionality.
 func TestApplyChan_BasicFunctionality(t *testing.T) {
 	t.Parallel()
 	input := make(chan int, 3)
@@ -156,7 +156,7 @@ func TestApplyChan_BasicFunctionality(t *testing.T) {
 	assert.Equal(t, expected, results)
 }
 
-// TestApplyChan_ErrorHandling tests that errors are handled properly
+// TestApplyChan_ErrorHandling tests that errors are handled properly.
 func TestApplyChan_ErrorHandling(t *testing.T) {
 	t.Parallel()
 	input := make(chan int, 5)
@@ -184,7 +184,7 @@ func TestApplyChan_ErrorHandling(t *testing.T) {
 	assert.Equal(t, expected, results)
 }
 
-// TestApplyChan_EmptyChannel tests behavior with empty input channel
+// TestApplyChan_EmptyChannel tests behavior with empty input channel.
 func TestApplyChan_EmptyChannel(t *testing.T) {
 	t.Parallel()
 	input := make(chan int)
@@ -202,7 +202,7 @@ func TestApplyChan_EmptyChannel(t *testing.T) {
 	assert.Empty(t, results)
 }
 
-// TestApplyChan_ChannelCapacity tests that output channel has same capacity as input
+// TestApplyChan_ChannelCapacity tests that output channel has same capacity as input.
 func TestApplyChan_ChannelCapacity(t *testing.T) {
 	t.Parallel()
 	input := make(chan int, 5)
@@ -217,7 +217,7 @@ func TestApplyChan_ChannelCapacity(t *testing.T) {
 	close(input)
 }
 
-// TestApplyChan_UnbufferedChannel tests with unbuffered channels
+// TestApplyChan_UnbufferedChannel tests with unbuffered channels.
 func TestApplyChan_UnbufferedChannel(t *testing.T) {
 	t.Parallel()
 	input := make(chan int)
@@ -239,7 +239,7 @@ func TestApplyChan_UnbufferedChannel(t *testing.T) {
 	assert.Equal(t, "42", results[0])
 }
 
-// TestApplyChan_RaceConditions tests for race conditions with concurrent access
+// TestApplyChan_RaceConditions tests for race conditions with concurrent access.
 func TestApplyChan_RaceConditions(t *testing.T) {
 	t.Parallel()
 	const numGoroutines = 10
@@ -285,7 +285,7 @@ func TestApplyChan_RaceConditions(t *testing.T) {
 	}
 }
 
-// TestApplyChan_FullOutputChannel tests behavior when output channel buffer is full
+// TestApplyChan_FullOutputChannel tests behavior when output channel buffer is full.
 func TestApplyChan_FullOutputChannel(t *testing.T) {
 	t.Parallel()
 	input := make(chan int, 10)
@@ -317,14 +317,14 @@ func TestApplyChan_FullOutputChannel(t *testing.T) {
 	}
 }
 
-// TestApplyChan_TypeTransformation tests transformation between different types
+// TestApplyChan_TypeTransformation tests transformation between different types.
 func TestApplyChan_TypeTransformation(t *testing.T) {
 	t.Parallel()
 	input := make(chan testStructOne, 3)
 
 	// Transform struct to string
 	output := ApplyChan(input, func(s testStructOne) (string, error) {
-		return fmt.Sprintf("field:%s", s.Field), nil
+		return "field:" + s.Field, nil
 	})
 
 	// Send test data

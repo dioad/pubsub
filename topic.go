@@ -232,11 +232,10 @@ func (t *pubsubTopic) Unsubscribe(ch <-chan any) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	subs := t.subscriptions
-	for i, sub := range subs {
+	for i, sub := range t.subscriptions {
 		if ch == sub {
 			t.observer.OnUnsubscribe(t.name)
-			t.subscriptions = append(subs[:i], subs[i+1:]...)
+			t.subscriptions = append(t.subscriptions[:i], t.subscriptions[i+1:]...)
 			close(sub)
 			break
 		}

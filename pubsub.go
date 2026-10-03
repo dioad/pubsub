@@ -28,10 +28,17 @@ type Observer interface {
 // NoopObserver is an Observer that does nothing.
 type NoopObserver struct{}
 
-func (o NoopObserver) OnPublish(topic string, msg any) {}
-func (o NoopObserver) OnDrop(topic string, msg any)    {}
-func (o NoopObserver) OnSubscribe(topic string)        {}
-func (o NoopObserver) OnUnsubscribe(topic string)      {}
+// OnPublish does nothing.
+func (o NoopObserver) OnPublish(_ string, _ any) {}
+
+// OnDrop does nothing.
+func (o NoopObserver) OnDrop(_ string, _ any) {}
+
+// OnSubscribe does nothing.
+func (o NoopObserver) OnSubscribe(_ string) {}
+
+// OnUnsubscribe does nothing.
+func (o NoopObserver) OnUnsubscribe(_ string) {}
 
 // Opt is a functional option for configuring a PubSub instance.
 type Opt func(*pubSub)
@@ -199,7 +206,7 @@ type PubSub interface {
 // It supports subscribing to topics and publishing messages to topics
 // Optionally, it can keep a history of messages for each topic
 // and deliver them to new subscribers
-// It is safe for concurrent use
+// It is safe for concurrent use.
 type pubSub struct {
 	store     topicstore.Store
 	topicFunc func(name string) Topic
@@ -292,7 +299,7 @@ func (ps *pubSub) Topic(topicName string) Topic {
 	t := ps.store.GetOrCreate(topicName, func() topicstore.Topic {
 		return ps.topicFunc(topicName)
 	}, nil)
-	return t.(Topic)
+	return t.(Topic) //nolint:forcetypeassert // the factory above always returns a value created by ps.topicFunc, which always returns a Topic
 }
 
 func (ps *pubSub) publishToTopic(topic string, msg ...any) PublishResult {
@@ -321,7 +328,7 @@ func (ps *pubSub) PublishReliable(topic string, msg ...any) int {
 	return total
 }
 
-// UnsubscribeAll unsubscribes a channel from the "*" special topic
+// UnsubscribeAll unsubscribes a channel from the "*" special topic.
 func (ps *pubSub) UnsubscribeAll(sub <-chan any) {
 	ps.Unsubscribe(WildcardTopic, sub)
 }

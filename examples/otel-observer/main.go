@@ -1,3 +1,4 @@
+// Command otel-observer demonstrates wiring pubsub with an OpenTelemetry and Prometheus observer.
 package main
 
 import (
@@ -51,8 +52,12 @@ func initConn() func() {
 	otel.SetMeterProvider(mp)
 
 	return func() {
-		tp.Shutdown(context.Background())
-		mp.Shutdown(context.Background())
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Printf("failed to shut down tracer provider: %v", err)
+		}
+		if err := mp.Shutdown(context.Background()); err != nil {
+			log.Printf("failed to shut down meter provider: %v", err)
+		}
 	}
 }
 
@@ -70,7 +75,11 @@ func main() {
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		fmt.Println("Prometheus metrics available at http://localhost:8080/metrics")
-		if err := http.ListenAndServe(":8080", nil); err != nil {
+		server := &http.Server{
+			Addr:              ":8080",
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		if err := server.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
