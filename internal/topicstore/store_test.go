@@ -18,6 +18,7 @@ func (m *mockTopic) Close() {
 }
 
 func TestSimpleStore(t *testing.T) {
+	t.Parallel()
 	s := NewSimpleStore()
 
 	// GetOrCreate
@@ -69,6 +70,7 @@ func TestSimpleStore(t *testing.T) {
 }
 
 func TestShardedStore(t *testing.T) {
+	t.Parallel()
 	s := NewShardedStore()
 
 	// GetOrCreate
@@ -123,6 +125,7 @@ func TestShardedStore(t *testing.T) {
 }
 
 func TestSimpleStore_RangeExit(t *testing.T) {
+	t.Parallel()
 	s := NewSimpleStore()
 	s.GetOrCreate("t1", func() Topic { return &mockTopic{} }, nil)
 	s.GetOrCreate("t2", func() Topic { return &mockTopic{} }, nil)
@@ -135,7 +138,8 @@ func TestSimpleStore_RangeExit(t *testing.T) {
 	assert.Equal(t, 1, count, "expected 1 topic after early exit, got %d", count)
 }
 
-func TestStore_ShutdownTimeout(_ *testing.T) {
+func TestStore_ShutdownTimeout(t *testing.T) {
+	t.Parallel()
 	s := NewSimpleStore()
 	s.GetOrCreate("test", func() Topic { return &mockTopic{} }, nil)
 

@@ -10,6 +10,7 @@ import (
 )
 
 func TestRingBuffer_Basic(t *testing.T) {
+	t.Parallel()
 	size := 3
 	rb := New(size)
 
@@ -36,6 +37,7 @@ func TestRingBuffer_Basic(t *testing.T) {
 }
 
 func TestRingBuffer_InvalidSize(t *testing.T) {
+	t.Parallel()
 	rb := New(0)
 	assert.Equal(t, 1, rb.Cap(), "expected cap 1 for size 0, got %d", rb.Cap())
 
@@ -44,6 +46,7 @@ func TestRingBuffer_InvalidSize(t *testing.T) {
 }
 
 func TestRingBuffer_Concurrent(t *testing.T) {
+	t.Parallel()
 	size := 100
 	rb := New(size)
 	numGoroutines := 10

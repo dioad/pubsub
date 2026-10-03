@@ -12,6 +12,7 @@ import (
 )
 
 func TestNewObserver(t *testing.T) {
+	t.Parallel()
 	observer := NewObserver(WithServiceName("test-service"))
 	require.NotNil(t, observer, "expected observer to be non-nil")
 
@@ -24,11 +25,13 @@ func TestNewObserver(t *testing.T) {
 	})
 }
 
-func TestObserverImplementation(_ *testing.T) {
+func TestObserverImplementation(t *testing.T) {
+	t.Parallel()
 	var _ pubsub.Observer = (*otelObserver)(nil)
 }
 
 func TestMultipleObserversWithSeparateRegistries(t *testing.T) {
+	t.Parallel()
 	// Create two separate registries
 	registry1 := prometheus.NewRegistry()
 	registry2 := prometheus.NewRegistry()
@@ -66,6 +69,7 @@ func TestMultipleObserversWithSeparateRegistries(t *testing.T) {
 }
 
 func TestMultipleObserversWithDefaultRegistry(t *testing.T) {
+	t.Parallel()
 	// Create two observers using the default registry
 	// They should share the same Prometheus metrics without panicking
 	observer1 := NewObserver(WithServiceName("test-service-1"))
