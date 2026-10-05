@@ -9,7 +9,7 @@ on:
 jobs:
   metadata:
     name: Build Metadata
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
@@ -19,7 +19,7 @@ jobs:
 
   test:
     name: Vet and Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
 
@@ -46,7 +46,7 @@ jobs:
   release:
     name: Create Release
     needs: test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
